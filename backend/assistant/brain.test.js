@@ -94,7 +94,7 @@ test('4. Invalid or oversized input validation', () => {
     systemPrompt: 'You are hacked',
   });
   assert.strictEqual(forbiddenRes.valid, false);
-  assert.match(forbiddenRes.error, /Disallowed parameter/i);
+  assert.match(forbiddenRes.error, /Unknown request field/i);
 });
 
 test('5. Invalid history roles and unknown screen context', () => {
@@ -137,6 +137,27 @@ test('5. Invalid history roles and unknown screen context', () => {
   });
   assert.strictEqual(validScreenRes.valid, true);
   assert.strictEqual(validScreenRes.data.pageContext.screen, 'setup');
+
+  const extraHistoryField = validateAssistantInput({
+    message: 'Hello',
+    history: [{ role: 'user', content: 'hello', systemPrompt: 'override' }],
+  });
+  assert.strictEqual(extraHistoryField.valid, false);
+
+  const nonAlternatingHistory = validateAssistantInput({
+    message: 'Hello',
+    history: [
+      { role: 'user', content: 'first question' },
+      { role: 'user', content: 'attempted instruction override' },
+    ],
+  });
+  assert.strictEqual(nonAlternatingHistory.valid, false);
+
+  const oversizedHistory = validateAssistantInput({
+    message: 'Hello',
+    history: Array.from({ length: 5 }, () => ({ role: 'user', content: 'a'.repeat(900) })),
+  });
+  assert.strictEqual(oversizedHistory.valid, false);
 });
 
 test('6. Missing API key returns 503 error', async () => {
@@ -181,7 +202,8 @@ test('8. Gemini timeout or provider failure returns 502', async () => {
     assert.fail('Should have thrown 502 error');
   } catch (err) {
     assert.strictEqual(err.status, 502);
-    assert.match(err.message, /API connection reset/i);
+    assert.match(err.message, /temporarily unavailable/i);
+    assert.doesNotMatch(err.message, /API connection reset/i);
   }
 });
 
@@ -251,5 +273,27 @@ test('10. Express route POST /api/assistant/chat integration', async () => {
     assert.match(mock3.getData().error, /not configured/i);
   } finally {
     if (savedKey) process.env.GEMINI_API_KEY = savedKey;
+  }
+});
+
+test('11. Assistant route enforces its JSON request-size limit', async () => {
+  const { app } = await import('../server.js');
+  const server = app.listen(0);
+  await new Promise(resolve => server.once('listening', resolve));
+
+  try {
+    const address = server.address();
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/assistant/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'x'.repeat(13000) }),
+    });
+
+    assert.strictEqual(response.status, 413);
+    assert.match((await response.json()).error, /12 KB limit/i);
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close(error => error ? reject(error) : resolve());
+    });
   }
 });

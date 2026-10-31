@@ -32,7 +32,9 @@ Inbox Quest includes a robust rules-first heuristic classifier that functions fu
 To enable optional Gemini AI classification:
 1. Copy `backend/.env.example` to `backend/.env`.
 2. Add your `GEMINI_API_KEY`.
-3. Set `GEMINI_MODEL`. **Note:** You must confirm a currently supported Gemini model name in the official [Google AI Studio / Gemini documentation](https://ai.google.dev/gemini-api/docs/models/gemini) before setting `GEMINI_MODEL` (e.g. `gemini-1.5-flash` or newer). Do not guess deprecated model names.
+3. Optionally set `GEMINI_MODEL` to an available model (the assistant defaults to `gemini-2.5-flash`).
+
+The same server-side key enables the Inbox Quest-only help assistant. Its chat endpoint accepts questions about the site and game only; it cannot access or change email. Keep the key in the ignored backend `.env` file or your hosting provider’s secret settings, never in frontend code or Git.
 
 ---
 

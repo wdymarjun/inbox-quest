@@ -223,8 +223,9 @@ Dedicated in-product help assistant for Inbox Quest. The assistant is strictly l
 ### Input Limits
 - `message` (required): Non-empty string, trimmed, maximum 1,000 characters.
 - `history` (optional): Array of up to 6 objects with `role` (`"user"` or `"assistant"`) and non-empty `content` (max 1,000 characters each).
+- Total history content is limited to 4,000 characters.
 - `pageContext.screen` (optional): Must be one of `landing`, `setup`, `inbox`, `game`, `results`. All other fields or unknown screens are rejected.
-- Request payload must not contain arbitrary keys (`systemPrompt`, `tools`, `model`, etc.).
+- Request payload is limited to 12 KB and must not contain fields beyond `message`, `history`, and `pageContext`.
 
 ### Response (200 OK)
 ```json
@@ -234,7 +235,8 @@ Dedicated in-product help assistant for Inbox Quest. The assistant is strictly l
 ```
 
 ### Error Responses
-- `400 Bad Request`: Missing or invalid `message`, oversized payload, invalid `history` roles, or disallowed parameters.
+- `400 Bad Request`: Missing or invalid `message`, invalid `history` roles, or unsupported fields.
+- `413 Payload Too Large`: Request body exceeds 12 KB.
 - `429 Too Many Requests`: Rate limit exceeded (default 20 requests per minute per IP).
-- `502 Bad Gateway`: Gemini API provider failure or request timeout (10 seconds).
+- `502 Bad Gateway`: Gemini API provider failure or request timeout (15 seconds).
 - `503 Service Unavailable`: `GEMINI_API_KEY` is not configured on the backend server.

@@ -6,6 +6,7 @@ import { GameScreen } from './screens/GameScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
 import { InboxScreen } from './screens/InboxScreen';
 import { GmailActionReviewModal } from './components/GmailActionReviewModal';
+import { InboxQuestAssistant } from './components/InboxQuestAssistant';
 import {
   fetchInbox,
   classifyEmails,
@@ -242,7 +243,7 @@ export default function App() {
             ['credits', 'Credits'],
           ].map(([section, label]) => (
             <button
-              className="nav-link"
+              className={`nav-link nav-link-${section}`}
               key={section}
               onClick={() => handleSectionNavigation(section)}
               aria-current={currentScreen === 'landing' && section === 'home' ? 'page' : undefined}
@@ -316,6 +317,7 @@ export default function App() {
           />
         )}
       </main>
+      <InboxQuestAssistant screen={currentScreen} />
     </div>
   );
 }

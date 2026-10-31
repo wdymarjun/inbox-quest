@@ -93,11 +93,10 @@ export function validateAssistantInput(body) {
     return { valid: false, error: 'Request body must be a JSON object.' };
   }
 
-  // Check forbidden property keys
-  const forbiddenKeys = ['systemPrompt', 'tools', 'model', 'tokens', 'email_content', 'password', 'code'];
-  for (const k of forbiddenKeys) {
-    if (k in body) {
-      return { valid: false, error: `Disallowed parameter "${k}" in request.` };
+  const allowedBodyKeys = new Set(['message', 'history', 'pageContext']);
+  for (const key of Object.keys(body)) {
+    if (!allowedBodyKeys.has(key)) {
+      return { valid: false, error: `Unknown request field "${key}".` };
     }
   }
 
@@ -129,8 +128,13 @@ export function validateAssistantInput(body) {
 
     for (let i = 0; i < history.length; i++) {
       const item = history[i];
-      if (!item || typeof item !== 'object') {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
         return { valid: false, error: `History item at index ${i} must be an object.` };
+      }
+
+      const historyKeys = Object.keys(item);
+      if (historyKeys.some(key => key !== 'role' && key !== 'content')) {
+        return { valid: false, error: `History item at index ${i} contains an unsupported field.` };
       }
 
       const { role, content } = item;
@@ -148,6 +152,22 @@ export function validateAssistantInput(body) {
 
       validatedHistory.push({ role, content: content.trim() });
     }
+
+    for (let i = 0; i < validatedHistory.length; i++) {
+      const expectedRole = i % 2 === 0 ? 'user' : 'assistant';
+      if (validatedHistory[i].role !== expectedRole) {
+        return { valid: false, error: 'History messages must alternate between user and assistant, starting with user.' };
+      }
+    }
+
+    if (validatedHistory.length > 0 && validatedHistory[validatedHistory.length - 1].role !== 'assistant') {
+      return { valid: false, error: 'History must end with an assistant response.' };
+    }
+  }
+
+  const historySize = validatedHistory.reduce((total, item) => total + item.content.length, 0);
+  if (historySize > 4000) {
+    return { valid: false, error: 'Conversation history exceeds maximum total length of 4,000 characters.' };
   }
 
   // Validate pageContext (optional)
@@ -227,7 +247,7 @@ export async function askAssistant({ message, history = [], pageContext = null, 
 
   // 2. Resolve Gemini API Key & Model
   const apiKey = process.env.GEMINI_API_KEY;
-  const modelName = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+  const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
   if (!apiKey && !aiClientForTesting) {
     const err = new Error('Gemini API key is not configured on the server.');
@@ -242,7 +262,7 @@ export async function askAssistant({ message, history = [], pageContext = null, 
       const { GoogleGenAI } = await import('@google/genai');
       aiClient = new GoogleGenAI({ apiKey });
     } catch (sdkErr) {
-      const err = new Error(`Failed to initialize Gemini SDK: ${sdkErr.message}`);
+      const err = new Error('Gemini service could not be initialized.');
       err.status = 502;
       throw err;
     }
@@ -271,13 +291,14 @@ export async function askAssistant({ message, history = [], pageContext = null, 
 
   // 5. Call Gemini with timeout and output limits
   let responseText = '';
+  let timeoutId;
   try {
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         const timeoutErr = new Error('Gemini provider request timed out.');
         timeoutErr.status = 502;
         reject(timeoutErr);
-      }, 25000);
+      }, 15000);
     });
 
     const generatePromise = aiClient.models.generateContent({
@@ -293,9 +314,13 @@ export async function askAssistant({ message, history = [], pageContext = null, 
     const response = await Promise.race([generatePromise, timeoutPromise]);
     responseText = response?.text || '';
   } catch (apiErr) {
-    const err = new Error(apiErr.message || 'Gemini generation failure');
+    const err = new Error(apiErr.status === 503
+      ? 'Gemini service is not configured.'
+      : 'The Inbox Quest assistant is temporarily unavailable. Please try again.');
     err.status = apiErr.status || 502;
     throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   // 6. Validate and sanitize response
@@ -313,4 +338,3 @@ export async function askAssistant({ message, history = [], pageContext = null, 
 
   return { answer: trimmed };
 }
-

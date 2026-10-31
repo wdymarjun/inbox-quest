@@ -142,13 +142,13 @@ export function ResultsScreen({ results, onPlayAgain, usingDemoInbox, inboxSourc
               <tbody>
                 {processedEmails.map((email, index) => (
                   <tr key={email.id || index}>
-                    <td className="email-cell">
+                    <td className="email-cell" data-label="Email">
                       <strong>{email.sender}</strong>
                       <span>{email.subject}</span>
                     </td>
-                    <td><span className={`category-label ${email.category === 'uncertain' ? 'uncertain' : ''}`}>{categoryLabels[email.category] || 'Uncategorized'}</span></td>
-                    <td><span className="tag-badge suggested">{actionLabels[email.suggestedAction] || 'Review'}</span></td>
-                    <td>
+                    <td data-label="Category"><span className={`category-label ${email.category === 'uncertain' ? 'uncertain' : ''}`}>{categoryLabels[email.category] || 'Uncategorized'}</span></td>
+                    <td data-label="AI suggestion"><span className="tag-badge suggested">{actionLabels[email.suggestedAction] || 'Review'}</span></td>
+                    <td data-label="Completed action">
                       {email.actionStatus === 'applied' ? (
                         <span className={`completed-label ${undoDone ? 'restored' : ''}`}>
                           {undoDone ? 'Undone' : actionLabels[email.actionTaken] || 'Completed'}

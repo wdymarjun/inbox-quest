@@ -240,7 +240,7 @@ export function GameScreen({ emails, classifications, onMissionComplete, inboxSo
     const gameSpeed = 220; // px/sec
 
     const updateAndRender = (currentTime) => {
-      const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+      const dt = Math.min((currentTime - lastTime) / 1000, 0.05);
       lastTime = currentTime;
 
       if (fastForwardRef.current) {
@@ -609,10 +609,26 @@ export function GameScreen({ emails, classifications, onMissionComplete, inboxSo
       }
     };
 
-    animationFrameId = requestAnimationFrame(updateAndRender);
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(animationFrameId);
+        return;
+      }
+
+      lastTime = performance.now();
+      if (!missionFinished && !fastForwardRef.current) {
+        animationFrameId = requestAnimationFrame(updateAndRender);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    if (!document.hidden) {
+      animationFrameId = requestAnimationFrame(updateAndRender);
+    }
 
     return () => {
       cancelAnimationFrame(animationFrameId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleWindowBlur);

@@ -238,3 +238,26 @@ export async function fetchSummary() {
     high_priority_protected: flaggedImportant,
   };
 }
+
+export async function askInboxQuestAssistant({ message, history, screen }) {
+  const response = await fetch(`${BASE_URL}/api/assistant/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message,
+      history,
+      pageContext: screen ? { screen } : undefined,
+    }),
+    signal: AbortSignal.timeout(30000),
+  });
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error || 'The Inbox Quest assistant is temporarily unavailable. Please try again.');
+  }
+  if (typeof data?.answer !== 'string' || !data.answer.trim()) {
+    throw new Error('The Inbox Quest assistant returned an invalid response. Please try again.');
+  }
+
+  return data.answer.trim();
+}

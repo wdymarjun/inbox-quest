@@ -24,6 +24,7 @@ app.use(cors({
   credentials: true,
 }));
 
+app.use('/api/assistant/chat', express.json({ limit: '12kb' }));
 app.use(express.json());
 
 // Load mock inbox data
@@ -114,7 +115,7 @@ app.get('/api/summary', (req, res) => {
  */
 export async function handleAssistantChat(req, res) {
   // 1. Rate limiting by IP
-  const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
+  const clientIp = req.ip || req.socket?.remoteAddress || 'unknown';
   if (assistantRateLimiter.isRateLimited(clientIp)) {
     return res.status(429).json({
       error: 'Too many requests. Please wait a moment before asking another question.',
@@ -132,14 +133,28 @@ export async function handleAssistantChat(req, res) {
     const result = await askAssistant(validation.data);
     return res.json({ answer: result.answer });
   } catch (err) {
-    const status = err.status || 500;
+    const status = err.status === 503 ? 503 : 502;
     return res.status(status).json({
-      error: err.message || 'Assistant service encountered an issue.',
+      error: status === 503
+        ? 'The Inbox Quest assistant is not configured yet.'
+        : 'The Inbox Quest assistant is temporarily unavailable. Please try again.',
     });
   }
 }
 
 app.post('/api/assistant/chat', handleAssistantChat);
+
+app.use((err, req, res, next) => {
+  if (req.path === '/api/assistant/chat' && err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request body exceeds the 12 KB limit.' });
+  }
+
+  if (req.path === '/api/assistant/chat' && err instanceof SyntaxError && 'body' in err) {
+    return res.status(400).json({ error: 'Request body must be valid JSON.' });
+  }
+
+  return next(err);
+});
 
 // Health check
 app.get('/health', (req, res) => {
