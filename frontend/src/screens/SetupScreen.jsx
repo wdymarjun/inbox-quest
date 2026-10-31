@@ -38,8 +38,12 @@ export function SetupScreen({
 
   return (
     <div className="screen-card setup-screen">
+      <div className="screen-route-lead" aria-hidden="true">
+        <span className="route-lead-beam" />
+        <span className="route-lead-node" />
+      </div>
       <div className="setup-heading">
-        <span className="eyebrow"><span className="eyebrow-dot" /> MISSION BRIEFING</span>
+        <span className="eyebrow"><span className="eyebrow-dot" /> MISSION BRIEFING · COURIER ROUTE</span>
         <h2>Mission Setup</h2>
         <p>Configure your inbox mission parameters. Every triage action is safe, verified, and reversible.</p>
       </div>

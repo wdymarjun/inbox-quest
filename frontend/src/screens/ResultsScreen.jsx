@@ -65,6 +65,10 @@ export function ResultsScreen({ results, onPlayAgain, usingDemoInbox, inboxSourc
 
   return (
     <div className="screen-card results-card">
+      <div className="screen-route-lead" aria-hidden="true">
+        <span className="route-lead-beam" />
+        <span className="route-lead-node" />
+      </div>
       <div className="results-heading">
         <div>
           <span className="eyebrow"><span className="eyebrow-dot" /> MISSION REPORT</span>

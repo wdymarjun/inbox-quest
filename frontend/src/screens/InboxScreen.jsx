@@ -69,6 +69,10 @@ export function InboxScreen({ emails, classifications, accountEmail, onStartGame
 
   return (
     <section className="inbox-screen" aria-labelledby="inbox-screen-title">
+      <div className="screen-route-lead" aria-hidden="true">
+        <span className="route-lead-beam" />
+        <span className="route-lead-node" />
+      </div>
       <header className="inbox-screen-header">
         <div>
           <span className="eyebrow"><span className="eyebrow-dot" /> CONNECTED MAILBOX</span>
@@ -175,11 +179,12 @@ export function InboxScreen({ emails, classifications, accountEmail, onStartGame
               </div>
               <p className="detail-snippet">{selectedMessage.snippet || 'No message preview was provided.'}</p>
               <div className="detail-suggestion">
+                <div className="detail-suggestion-badge">PROPOSAL ONLY · NO GMAIL MUTATION</div>
                 <span className="detail-suggestion-kicker">TRIAGE SUGGESTION</span>
                 <strong>{actionLabels[selectedMessage.classification.suggested_action] || actionLabels.needs_review}</strong>
                 <p>{selectedMessage.classification.reason || 'Review this suggestion before applying any changes.'}</p>
               </div>
-              <p className="detail-no-mutation">This preview does not change your Gmail.</p>
+              <p className="detail-no-mutation">This preview is strictly read-only. Suggestions are not applied actions.</p>
             </>
           ) : (
             <div className="detail-empty">
