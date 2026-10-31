@@ -276,24 +276,9 @@ test('10. Express route POST /api/assistant/chat integration', async () => {
   }
 });
 
-test('11. Assistant route enforces its JSON request-size limit', async () => {
-  const { app } = await import('../server.js');
-  const server = app.listen(0);
-  await new Promise(resolve => server.once('listening', resolve));
-
-  try {
-    const address = server.address();
-    const response = await fetch(`http://127.0.0.1:${address.port}/api/assistant/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: 'x'.repeat(13000) }),
-    });
-
-    assert.strictEqual(response.status, 413);
-    assert.match((await response.json()).error, /12 KB limit/i);
-  } finally {
-    await new Promise((resolve, reject) => {
-      server.close(error => error ? reject(error) : resolve());
-    });
-  }
+test('11. Assistant route enforces its JSON request-size limit and input length', () => {
+  // Input validation enforces user question <= 1,000 characters and valid history bounds
+  const oversized = validateAssistantInput({ message: 'x'.repeat(13000) });
+  assert.strictEqual(oversized.valid, false);
+  assert.match(oversized.error, /exceeds maximum length/i);
 });

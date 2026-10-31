@@ -33,6 +33,30 @@ body {
   color: var(--text-primary);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  max-width: 100vw;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+html {
+  overflow-x: hidden;
+  max-width: 100vw;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+*::-webkit-scrollbar,
+::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 }
 
 .app-container {
@@ -880,13 +904,24 @@ canvas {
 
 .canvas-container {
   overflow: hidden;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .canvas-container canvas {
   width: 100%;
   height: auto;
   aspect-ratio: 900 / 380;
-  touch-action: manipulation;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  display: block;
+  image-rendering: -webkit-optimize-contrast;
 }
 
 .hud-toast.flag {
@@ -1191,7 +1226,9 @@ button:disabled {
 
 @media (max-width: 760px) {
   .app-header {
-    padding: 0.8rem 1rem;
+    padding: calc(0.8rem + env(safe-area-inset-top, 0px)) calc(1rem + env(safe-area-inset-right, 0px)) 0.8rem calc(1rem + env(safe-area-inset-left, 0px));
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
   }
 
   .logo-tagline {
@@ -1209,7 +1246,7 @@ button:disabled {
   }
 
   .main-content {
-    padding: 2rem 1rem;
+    padding: 1.5rem calc(1rem + env(safe-area-inset-right, 0px)) calc(2.5rem + env(safe-area-inset-bottom, 0px)) calc(1rem + env(safe-area-inset-left, 0px));
   }
 
   .landing-layout {
@@ -1248,17 +1285,23 @@ button:disabled {
   .game-hud {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    font-size: 0.77rem;
+    gap: 0.5rem 0.75rem;
+    padding: 0.75rem 0.65rem;
+    font-size: 0.76rem;
   }
 
   .game-hud .game-score {
     grid-column: 1 / -1;
+    display: flex;
     justify-content: space-between;
+    align-items: center;
+    padding-top: 0.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .game-controls-hint {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     font-size: 0.75rem;
   }
 
@@ -1269,6 +1312,8 @@ button:disabled {
   .actions-table-wrapper {
     margin-left: -0.2rem;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
   }
 
   .actions-table {
@@ -1610,33 +1655,53 @@ body {
 
 .touch-controls {
   display: none;
-  gap: 0.55rem;
+  gap: 0.65rem;
+}
+
+@media (hover: none) and (pointer: coarse), (max-width: 900px) {
+  .touch-controls {
+    display: flex;
+    width: 100%;
+    gap: 0.65rem;
+  }
+
+  .touch-control {
+    flex: 1;
+    min-height: 52px;
+  }
 }
 
 .touch-control {
-  min-width: 90px;
-  min-height: 44px;
-  padding: 0.6rem 0.8rem;
-  border: 1px solid rgba(199, 199, 199, 0.24);
-  border-radius: 12px;
+  min-width: 100px;
+  min-height: 52px;
+  padding: 0.7rem 1rem;
+  border: 1px solid rgba(199, 199, 199, 0.28);
+  border-radius: 14px;
   color: #F8F8F8;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
   font: inherit;
+  font-size: 0.96rem;
   font-weight: 750;
-  touch-action: none;
+  touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
 .touch-control span {
-  margin-left: 0.3rem;
+  margin-left: 0.35rem;
   color: #CBCBCB;
 }
 
 .touch-control:active,
 .touch-control.active {
-  border-color: #CBCBCB;
-  background: rgba(164, 164, 164, 0.28);
+  transform: scale(0.96);
+  border-color: #ECECEC;
+  background: rgba(255, 255, 255, 0.24);
 }
 
 .fast-forward-button {
@@ -1766,6 +1831,13 @@ body {
 
   .touch-controls {
     display: flex;
+    width: 100%;
+    gap: 0.65rem;
+  }
+
+  .touch-control {
+    flex: 1;
+    min-height: 52px;
   }
 
   .game-controls-hint {
@@ -2256,6 +2328,7 @@ body {
 
 .touch-control:active,
 .touch-control.active {
+  transform: scale(0.96);
   border-color: #e5e5e5;
   background: rgba(255, 255, 255, 0.16);
 }
@@ -5215,8 +5288,9 @@ canvas:focus-visible {
   padding: 1.05rem 0.95rem;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-color: #444444 transparent;
-  scrollbar-width: thin;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+
 }
 
 .assistant-message {

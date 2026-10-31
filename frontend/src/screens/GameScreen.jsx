@@ -101,16 +101,18 @@ export function GameScreen({ emails, classifications, onMissionComplete, inboxSo
         robot.isGrounded = false;
         robot.jumps++;
 
-        for (let i = 0; i < 8; i++) {
+        // Keep particle counts lightweight to guarantee solid 60fps on mobile
+        const pCount = particles.length > 12 ? 3 : 6;
+        for (let i = 0; i < pCount; i++) {
           particles.push({
             x: robot.x + 10 + Math.random() * 20,
             y: robot.y + robot.height,
             vx: (Math.random() - 0.5) * 100,
             vy: Math.random() * 150 + 50,
             color: '#d8d8d8',
-            size: Math.random() * 4 + 2,
-            life: 0.35,
-            maxLife: 0.35,
+            size: Math.random() * 3 + 2,
+            life: 0.3,
+            maxLife: 0.3,
           });
         }
       }
@@ -144,22 +146,30 @@ export function GameScreen({ emails, classifications, onMissionComplete, inboxSo
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('blur', handleWindowBlur);
-    canvas.addEventListener('pointerdown', jump);
 
-    // Particle burst helper
+    // Fast zero-delay tap on canvas for mobile runners
+    const handleCanvasPointer = (e) => {
+      if (e.cancelable) e.preventDefault();
+      jump();
+    };
+    canvas.addEventListener('pointerdown', handleCanvasPointer);
+
+    // Particle burst helper - throttled for high mobile framerates
     function createBurst(x, y, color) {
-      for (let i = 0; i < 16; i++) {
+      if (particles.length > 18) return;
+      const count = particles.length > 8 ? 5 : 8;
+      for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const speed = Math.random() * 180 + 60;
+        const speed = Math.random() * 150 + 50;
         particles.push({
           x,
           y,
           vx: Math.cos(angle) * speed,
           vy: Math.sin(angle) * speed,
           color,
-          size: Math.random() * 4 + 2,
-          life: 0.5,
-          maxLife: 0.5,
+          size: Math.random() * 3 + 2,
+          life: 0.3,
+          maxLife: 0.3,
         });
       }
     }
@@ -632,7 +642,7 @@ export function GameScreen({ emails, classifications, onMissionComplete, inboxSo
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleWindowBlur);
-      canvas.removeEventListener('pointerdown', jump);
+      canvas.removeEventListener('pointerdown', handleCanvasPointer);
       crouchActionRef.current = null;
       jumpActionRef.current = null;
     };
@@ -775,7 +785,16 @@ export function GameScreen({ emails, classifications, onMissionComplete, inboxSo
             <strong>Crouch</strong> hold ↓ / S
           </span>
           <div className="touch-controls" aria-label="Touch game controls">
-            <button type="button" className="touch-control" onClick={handleJump} aria-label="Jump">
+            <button
+              type="button"
+              className="touch-control jump-control"
+              onPointerDown={(event) => {
+                event.preventDefault();
+                handleJump();
+              }}
+              onClick={handleJump}
+              aria-label="Jump"
+            >
               Jump <span aria-hidden="true">↑</span>
             </button>
             <button
