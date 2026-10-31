@@ -1,26 +1,36 @@
-import React, { useEffect, useState } from 'react';
-import { subscribeBackendStatus } from '../api';
+import React from 'react';
+import { GoogleSignInButton } from './GoogleSignInButton';
 
-export function StatusBadge() {
-  const [connected, setConnected] = useState(null);
+export function StatusBadge({ authState, onSignIn, onOpenSetup }) {
+  const isAuthenticated = Boolean(authState?.authenticated && authState?.user);
 
-  useEffect(() => {
-    const unsubscribe = subscribeBackendStatus(status => {
-      setConnected(status);
-    });
-    return unsubscribe;
-  }, []);
+  if (isAuthenticated) {
+    return (
+      <button
+        type="button"
+        className="header-account-button"
+        onClick={onOpenSetup}
+        title="Manage your connected Google account"
+      >
+        {authState.user.picture ? (
+          <img src={authState.user.picture} alt="" referrerPolicy="no-referrer" />
+        ) : (
+          <span className="header-account-initial" aria-hidden="true">
+            {(authState.user.name || authState.user.email || 'G').charAt(0).toUpperCase()}
+          </span>
+        )}
+        <span className="header-account-email">{authState.user.email || 'Google account connected'}</span>
+        <span className="header-account-dot" aria-hidden="true" />
+      </button>
+    );
+  }
 
   return (
-    <div className={`status-badge ${connected === null ? 'checking' : connected ? 'connected' : 'offline'}`}>
-      <span className="status-dot"></span>
-      <span>
-        {connected
-          ? 'Demo backend connected'
-          : connected === null
-            ? 'Demo inbox · simulated'
-            : 'Prototype mode — using sample inbox data.'}
-      </span>
-    </div>
+    <GoogleSignInButton
+      className="header-google-signin"
+      onClick={onSignIn}
+      loading={Boolean(authState?.loading && authState?.configured)}
+      label="Sign in with Google"
+    />
   );
 }

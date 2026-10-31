@@ -45,6 +45,15 @@ export async function fetchInbox(size = 25, source = 'demo') {
     });
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     const data = await res.json();
+
+    if (source === 'gmail') {
+      if (data?.source !== 'gmail' || !Array.isArray(data.emails)) {
+        throw new Error('The backend did not confirm that this is a live Gmail inbox.');
+      }
+      updateBackendStatus(true);
+      return { emails: data.emails, fromBackend: true, source };
+    }
+
     if (Array.isArray(data) && data.length > 0) {
       updateBackendStatus(true);
       return { emails: data, fromBackend: true, source };
@@ -53,6 +62,9 @@ export async function fetchInbox(size = 25, source = 'demo') {
     updateBackendStatus(false);
   } catch (err) {
     updateBackendStatus(false);
+    if (source === 'gmail') {
+      throw new Error('Could not load a verified Gmail inbox. Check the backend connection and try again.');
+    }
   }
 
   return { emails: getMockInboxBatch(size), fromBackend: false, source: 'demo' };
@@ -61,7 +73,7 @@ export async function fetchInbox(size = 25, source = 'demo') {
 /**
  * Classify emails
  */
-export async function classifyEmails(emails) {
+export async function classifyEmails(emails, source = 'demo') {
   try {
     const res = await fetch(`${BASE_URL}/api/classify`, {
       method: 'POST',
@@ -72,6 +84,14 @@ export async function classifyEmails(emails) {
     });
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     const data = await res.json();
+    if (source === 'gmail') {
+      if (!Array.isArray(data) || data.length === 0) {
+        throw new Error('The backend did not return verified Gmail classifications.');
+      }
+      updateBackendStatus(true);
+      return { classifications: data, fromBackend: true };
+    }
+
     if (Array.isArray(data) && data.length > 0) {
       updateBackendStatus(true);
       return { classifications: data, fromBackend: true };
@@ -79,6 +99,9 @@ export async function classifyEmails(emails) {
     updateBackendStatus(false);
   } catch (err) {
     updateBackendStatus(false);
+    if (source === 'gmail') {
+      throw new Error('Could not classify the Gmail messages. No Gmail changes have been made.');
+    }
   }
 
   return { classifications: mockClassify(emails), fromBackend: false };
@@ -87,9 +110,10 @@ export async function classifyEmails(emails) {
 /**
  * Apply batch actions
  */
-export async function applyActions(actions) {
+export async function applyActions(actions, source = 'demo') {
   try {
-    const res = await fetch(`${BASE_URL}/api/actions/apply`, {
+    const endpoint = source === 'gmail' ? '/api/gmail/actions/apply' : '/api/actions/apply';
+    const res = await fetch(`${BASE_URL}${endpoint}`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -102,6 +126,9 @@ export async function applyActions(actions) {
     return data;
   } catch (err) {
     updateBackendStatus(false);
+    if (source === 'gmail') {
+      throw new Error('Gmail actions could not be confirmed by the backend. No local-only success was recorded.');
+    }
   }
 
   // Local fallback apply
@@ -132,9 +159,10 @@ export async function applyActions(actions) {
 /**
  * Undo actions
  */
-export async function undoActions(actionIds) {
+export async function undoActions(actionIds, source = 'demo') {
   try {
-    const res = await fetch(`${BASE_URL}/api/actions/undo`, {
+    const endpoint = source === 'gmail' ? '/api/gmail/actions/undo' : '/api/actions/undo';
+    const res = await fetch(`${BASE_URL}${endpoint}`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -147,6 +175,9 @@ export async function undoActions(actionIds) {
     return data;
   } catch (err) {
     updateBackendStatus(false);
+    if (source === 'gmail') {
+      throw new Error('Gmail undo could not be confirmed by the backend. Please check the account and try again.');
+    }
   }
 
   // Local fallback undo

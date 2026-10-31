@@ -156,3 +156,45 @@ Retrieves audit metrics and summary of reviewed, organized, and protected emails
   "high_priority_protected": 0
 }
 ```
+
+---
+
+## Gmail Inbox Frontend Contract
+
+The current backend serves demo data from `GET /api/inbox` and does not yet expose Google OAuth or live Gmail operations. The frontend fails closed for Gmail: it must not treat a demo response or a local fallback as a connected mailbox.
+
+### OAuth session endpoints expected by the frontend
+
+- `GET /api/auth/status` returns `{ "configured": boolean, "authenticated": boolean, "user": { "email": "...", "name": "...", "picture": "..." } | null }`.
+- `GET /api/auth/google` starts the backend-managed Google OAuth redirect. Google collects credentials and consent; the frontend must never collect passwords or verification codes.
+- `POST /api/auth/logout` clears the server-side session.
+
+OAuth tokens must stay on the backend, protected by a secure HTTP-only session cookie. Do not return OAuth access or refresh tokens to the browser.
+
+### GET `/api/inbox?source=gmail&size=10|25|50`
+
+Requires an authenticated session. The response must positively identify its source so the frontend can distinguish Gmail from demo data:
+
+```json
+{
+  "source": "gmail",
+  "emails": [
+    {
+      "id": "provider-message-id",
+      "sender": "sender@example.com",
+      "subject": "Example subject",
+      "snippet": "Short message preview",
+      "date": "YYYY-MM-DD"
+    }
+  ]
+}
+```
+
+Do not include message bodies or tokens in this list response. The inbox UI is a review-only step; it does not change messages.
+
+### Gmail actions expected by the frontend
+
+- `POST /api/gmail/actions/apply` accepts the same safe action list as `/api/actions/apply`, requires an authenticated session, and applies only confirmed actions to the signed-in account. Reject deletion and enforce `safety.js` rules server-side. Return the same `applied` / `rejected` response shape as `/api/actions/apply`.
+- `POST /api/gmail/actions/undo` accepts `action_ids`, restores the exact prior Gmail label state for each applied action where possible, and returns the same `undone` / `failed` response shape as `/api/actions/undo`.
+
+The backend must store enough prior Gmail state to support undo. A frontend OAuth session or inbox preview is not authorization to apply actions; the user must confirm the action-review dialog first. If these Gmail endpoints are unavailable, frontend Gmail actions must fail visibly and must not report local-only success.

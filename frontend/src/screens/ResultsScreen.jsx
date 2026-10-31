@@ -45,7 +45,7 @@ export function ResultsScreen({ results, onPlayAgain, usingDemoInbox, inboxSourc
         return;
       }
 
-      const response = await undoActions(actionIds);
+      const response = await undoActions(actionIds, inboxSource);
       const failedCount = response.failed?.length || 0;
       const undoneCount = response.undone?.length || 0;
       const missingCount = Math.max(0, actionIds.length - undoneCount - failedCount);
@@ -69,7 +69,11 @@ export function ResultsScreen({ results, onPlayAgain, usingDemoInbox, inboxSourc
         <div>
           <span className="eyebrow"><span className="eyebrow-dot" /> MISSION REPORT</span>
           <h1 className="results-title">Nice run. Inbox checked.</h1>
-          <p className="results-intro">Here’s what was suggested and what the demo actually completed. No email was deleted.</p>
+          <p className="results-intro">
+            {inboxSource === 'gmail'
+              ? `Here’s what the confirmed cleanup completed${connectedEmail ? ` for ${connectedEmail}` : ''}. No email was deleted.`
+              : 'Here’s what was suggested and what the demo actually completed. No email was deleted.'}
+          </p>
         </div>
         <span className="mission-complete-mark" aria-hidden="true">✓</span>
       </div>

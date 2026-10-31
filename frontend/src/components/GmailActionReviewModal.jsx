@@ -11,6 +11,7 @@ export function GmailActionReviewModal({
   onConfirm,
   onCancel,
   applying = false,
+  error = '',
 }) {
   const archiveCount = proposedActions.filter(a => a.action === 'archive').length;
   const labelLaterCount = proposedActions.filter(a => a.action === 'label_read_later').length;
@@ -59,6 +60,8 @@ export function GmailActionReviewModal({
             <strong>Safety Guarantee:</strong> Zero deletions. Deletions are forbidden by code. You can undo every confirmed action in one click on the results screen.
           </div>
         </div>
+
+        {error && <div className="error-notice review-action-error" role="alert">{error}</div>}
 
         <div className="review-modal-actions">
           <button

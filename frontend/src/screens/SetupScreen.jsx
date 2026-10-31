@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
 
 export function SetupScreen({
@@ -13,12 +13,17 @@ export function SetupScreen({
   onDevPresetChange,
 }) {
   const [batchSize, setBatchSize] = useState(25);
-  // Default to demo; if user is authenticated with Google, allow choosing gmail
   const [selectedSource, setSelectedSource] = useState('demo'); // 'demo' | 'gmail'
 
   const isAuthenticated = Boolean(authState?.authenticated && authState?.user);
   const isOAuthConfigured = Boolean(authState?.configured);
   const isAuthLoading = Boolean(authState?.loading);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      setSelectedSource('gmail');
+    }
+  }, [isAuthenticated]);
 
   const handleSourceSelect = (source) => {
     if (source === 'gmail' && !isAuthenticated) {
@@ -223,7 +228,7 @@ export function SetupScreen({
         )}
 
         {/* Developer preview switcher for testing all states without live Google Cloud project */}
-        {onDevPresetChange && (
+        {import.meta.env.DEV && onDevPresetChange && (
           <div className="dev-preview-toggle">
             <span className="dev-preview-label">UI State Preview (Dev Test):</span>
             <div className="dev-btn-group">
@@ -298,7 +303,7 @@ export function SetupScreen({
           {loading
             ? 'Preparing mission…'
             : selectedSource === 'gmail'
-            ? `Start Gmail Mission (${batchSize} emails) →`
+            ? `Review Gmail Inbox (${batchSize} emails) →`
             : `Start Demo Mission (${batchSize} emails) →`}
         </button>
       </div>

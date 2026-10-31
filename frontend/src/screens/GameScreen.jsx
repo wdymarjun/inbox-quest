@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { applyActions } from '../api';
 
-export function GameScreen({ emails, classifications, onMissionComplete }) {
+export function GameScreen({ emails, classifications, onMissionComplete, inboxSource = 'demo' }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -182,22 +182,28 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
       resolvingEmailsRef.current.add(email.id);
       pendingActionsRef.current++;
 
-      // Apply to backend or fallback state
-      let actionStatus = 'rejected';
+      const awaitingGmailConfirmation = inboxSource === 'gmail';
+      let actionStatus = awaitingGmailConfirmation ? 'pending_confirmation' : 'rejected';
       let rejectedReason = '';
-      try {
-        const res = await applyActions([{ email_id: email.id, action: chosenAction }]);
-        if (res.applied && res.applied.length > 0) {
-          appliedActionsRef.current.push(...res.applied);
-          actionStatus = 'applied';
-        } else if (res.rejected?.length) {
-          rejectedReason = res.rejected[0].reason;
+
+      if (!awaitingGmailConfirmation) {
+        try {
+          const res = await applyActions([{ email_id: email.id, action: chosenAction }]);
+          if (res.applied && res.applied.length > 0) {
+            appliedActionsRef.current.push(...res.applied);
+            actionStatus = 'applied';
+          } else if (res.rejected?.length) {
+            rejectedReason = res.rejected[0].reason;
+          }
+        } catch (err) {
+          rejectedReason = err instanceof Error ? err.message : 'Action could not be completed.';
         }
-      } catch (err) {
-        rejectedReason = err instanceof Error ? err.message : 'Action could not be completed.';
       }
 
-      if (actionStatus === 'applied') {
+      if (awaitingGmailConfirmation) {
+        addToast(`Suggested: ${chosenAction.replaceAll('_', ' ')} · ${snippetShort}`, needsReview ? 'review' : 'archive');
+        if (needsReview) setReviewCount(c => c + 1);
+      } else if (actionStatus === 'applied') {
         if (chosenAction === 'leave_in_inbox') {
           addToast(`${needsReview ? 'For review' : 'Kept safe'}: ${snippetShort}`, needsReview ? 'review' : 'archive');
           if (needsReview) setReviewCount(c => c + 1);
@@ -306,7 +312,7 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
       }
 
       // Deep-space backdrop
-      ctx.fillStyle = '#08090b';
+      ctx.fillStyle = '#090909';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       const horizonGlow = ctx.createLinearGradient(0, groundY - 95, 0, groundY + 10);
@@ -320,19 +326,19 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
         const sx = ((s * 73 + currentTime * 0.02) % canvas.width);
         const sy = (s * 37) % (groundY - 50);
         const starSize = s % 5 === 0 ? 2 : 1;
-        ctx.fillStyle = s % 5 === 0 ? 'rgba(235, 239, 244, 0.52)' : 'rgba(190, 198, 208, 0.3)';
+        ctx.fillStyle = s % 5 === 0 ? 'rgba(239, 239, 239, 0.52)' : 'rgba(199, 199, 199, 0.3)';
         ctx.fillRect(sx, sy, starSize, starSize);
       }
 
       // Distant moon gives the route a clear horizon and sense of depth.
       ctx.save();
       ctx.globalAlpha = 0.13;
-      ctx.fillStyle = '#d7dde4';
+      ctx.fillStyle = '#DDDDDD';
       ctx.beginPath();
       ctx.arc(735, 115, 48, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 0.18;
-      ctx.strokeStyle = '#d7dde4';
+      ctx.strokeStyle = '#DDDDDD';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.ellipse(735, 115, 70, 18, -0.25, 0, Math.PI * 2);
@@ -340,15 +346,15 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
       ctx.restore();
 
       // Flat, high-contrast runway.
-      ctx.fillStyle = '#111316';
+      ctx.fillStyle = '#131313';
       ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
-      ctx.fillStyle = '#dce1e7';
+      ctx.fillStyle = '#E1E1E1';
       ctx.fillRect(0, groundY, canvas.width, 3);
-      ctx.fillStyle = 'rgba(220, 225, 231, 0.13)';
+      ctx.fillStyle = 'rgba(225, 225, 225, 0.13)';
       ctx.fillRect(0, groundY + 3, canvas.width, 1);
 
       // Subtle ground motion, kept below the play lane.
-      ctx.strokeStyle = '#25292e';
+      ctx.strokeStyle = '#292929';
       ctx.lineWidth = 1;
       const gridOffset = (currentTime * 0.22) % 40;
       for (let gx = -gridOffset; gx < canvas.width; gx += 40) {
@@ -367,14 +373,14 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
       const beamHeight = robot.crouching ? 9 : 15;
 
       ctx.globalAlpha = Math.max(0.08, 0.24 - flightHeight / 950);
-      ctx.fillStyle = '#dfe7ef';
+      ctx.fillStyle = '#E7E7E7';
       ctx.beginPath();
       ctx.ellipse(saucerX, groundY + 8, Math.max(13, 30 - flightHeight * 0.08), 5, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
 
       ctx.globalAlpha = robot.isGrounded ? 0.25 : 0.4;
-      ctx.fillStyle = '#d7e1eb';
+      ctx.fillStyle = '#E1E1E1';
       ctx.beginPath();
       ctx.moveTo(saucerX - 10, saucerY + 3);
       ctx.lineTo(saucerX + 10, saucerY + 3);
@@ -384,33 +390,33 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
       ctx.fill();
       ctx.globalAlpha = 1;
 
-      ctx.fillStyle = '#242a31';
+      ctx.fillStyle = '#2A2A2A';
       ctx.beginPath();
       ctx.ellipse(saucerX, saucerY + 7, 29, 10, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = '#f1f4f7';
+      ctx.strokeStyle = '#F4F4F4';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.ellipse(saucerX, saucerY + 7, 29, 10, 0, 0, Math.PI * 2);
       ctx.stroke();
 
-      ctx.fillStyle = '#e5e9ed';
+      ctx.fillStyle = '#E9E9E9';
       ctx.beginPath();
       ctx.ellipse(saucerX, saucerY + 2, 19, 7, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = '#b9c3cc';
+      ctx.fillStyle = '#C3C3C3';
       ctx.beginPath();
       ctx.ellipse(saucerX, saucerY - 2, 12, 10, 0, Math.PI, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = '#f7f8fa';
+      ctx.strokeStyle = '#F8F8F8';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.ellipse(saucerX, saucerY - 2, 12, 10, 0, Math.PI, Math.PI * 2);
       ctx.stroke();
 
       for (let light = -1; light <= 1; light++) {
-        ctx.fillStyle = Math.sin(currentTime * 0.008 + light) > -0.35 ? '#ffffff' : '#9da8b2';
+        ctx.fillStyle = Math.sin(currentTime * 0.008 + light) > -0.35 ? '#ffffff' : '#A8A8A8';
         ctx.beginPath();
         ctx.arc(saucerX + light * 16, saucerY + 8, 1.8, 0, Math.PI * 2);
         ctx.fill();
@@ -457,73 +463,73 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
         // Draw obstacle
         ctx.save();
         if (obs.type === 'junk') {
-          ctx.fillStyle = '#252b32';
-          ctx.strokeStyle = '#e5e9ed';
+          ctx.fillStyle = '#2B2B2B';
+          ctx.strokeStyle = '#E9E9E9';
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.roundRect(obs.x, obs.y + 2, obs.width, obs.height - 2, 5);
           ctx.fill();
           ctx.stroke();
-          ctx.strokeStyle = '#f2f4f6';
+          ctx.strokeStyle = '#F4F4F4';
           ctx.beginPath();
           ctx.moveTo(obs.x + 6, obs.y + 9);
           ctx.lineTo(obs.x + obs.width / 2, obs.y + 19);
           ctx.lineTo(obs.x + obs.width - 6, obs.y + 9);
           ctx.stroke();
         } else if (obs.type === 'overhead') {
-          ctx.fillStyle = '#dfe4e9';
+          ctx.fillStyle = '#E4E4E4';
           ctx.beginPath();
           ctx.roundRect(obs.x, obs.y, obs.width, obs.height, 6);
           ctx.fill();
-          ctx.fillStyle = '#111417';
+          ctx.fillStyle = '#141414';
           ctx.beginPath();
           ctx.moveTo(obs.x + 7, obs.y + 8);
           ctx.lineTo(obs.x + obs.width / 2, obs.y + 19);
           ctx.lineTo(obs.x + obs.width - 7, obs.y + 8);
-          ctx.strokeStyle = '#111417';
+          ctx.strokeStyle = '#141414';
           ctx.lineWidth = 1.5;
           ctx.stroke();
           ctx.fillRect(obs.x + 8, obs.y + obs.height - 2, 4, 8);
           ctx.fillRect(obs.x + obs.width - 12, obs.y + obs.height - 2, 4, 8);
         } else if (obs.type === 'cargo') {
-          ctx.fillStyle = '#e1e5e9';
+          ctx.fillStyle = '#E5E5E5';
           ctx.beginPath();
           ctx.roundRect(obs.x + 2, obs.y, obs.width - 4, obs.height, 3);
           ctx.fill();
-          ctx.fillStyle = '#30363d';
+          ctx.fillStyle = '#363636';
           ctx.fillRect(obs.x + 8, obs.y + 7, obs.width - 16, 2);
           ctx.fillRect(obs.x + 8, obs.y + 13, obs.width - 13, 2);
           ctx.fillRect(obs.x + 8, obs.y + 19, obs.width - 18, 2);
         } else if (obs.type === 'beacon') {
           const pulse = 0.75 + Math.sin(currentTime * 0.006) * 0.15;
           ctx.globalAlpha = pulse * 0.22;
-          ctx.fillStyle = '#f2f5f8';
+          ctx.fillStyle = '#F5F5F5';
           ctx.beginPath();
           ctx.arc(obs.x + obs.width / 2, obs.y + obs.height / 2, 20, 0, Math.PI * 2);
           ctx.fill();
           ctx.globalAlpha = 1;
-          ctx.fillStyle = '#252b32';
-          ctx.strokeStyle = '#e6ebef';
+          ctx.fillStyle = '#2B2B2B';
+          ctx.strokeStyle = '#EBEBEB';
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.roundRect(obs.x + 1, obs.y + 3, obs.width - 2, 25, 5);
           ctx.fill();
           ctx.stroke();
-          ctx.strokeStyle = '#f3f5f7';
+          ctx.strokeStyle = '#F5F5F5';
           ctx.beginPath();
           ctx.moveTo(obs.x + 6, obs.y + 10);
           ctx.lineTo(obs.x + obs.width / 2, obs.y + 19);
           ctx.lineTo(obs.x + obs.width - 6, obs.y + 10);
           ctx.stroke();
         } else if (obs.type === 'question') {
-          ctx.fillStyle = '#252b32';
-          ctx.strokeStyle = '#cbd2d9';
+          ctx.fillStyle = '#2B2B2B';
+          ctx.strokeStyle = '#D2D2D2';
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.roundRect(obs.x, obs.y, obs.width, obs.height, 8);
           ctx.fill();
           ctx.stroke();
-          ctx.fillStyle = '#f4f6f8';
+          ctx.fillStyle = '#F6F6F6';
           ctx.font = 'bold 19px sans-serif';
           ctx.textAlign = 'center';
           ctx.fillText('?', obs.x + obs.width / 2, obs.y + 21);
@@ -536,14 +542,14 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
         const labelWidth = Math.max(ctx.measureText(senderLabel).width, ctx.measureText(categoryLabel).width) + 16;
         const labelX = obs.x + obs.width / 2 - labelWidth / 2;
         const labelY = obs.y - 39;
-        ctx.fillStyle = 'rgba(17, 20, 23, 0.94)';
+        ctx.fillStyle = 'rgba(20, 20, 20, 0.94)';
         ctx.beginPath();
         ctx.roundRect(labelX, labelY, labelWidth, 36, 5);
         ctx.fill();
-        ctx.fillStyle = '#f2f4f6';
+        ctx.fillStyle = '#F4F4F4';
         ctx.textAlign = 'center';
         ctx.fillText(senderLabel, obs.x + obs.width / 2, labelY + 14);
-        ctx.fillStyle = '#bec6ce';
+        ctx.fillStyle = '#C6C6C6';
         ctx.font = 'bold 10px sans-serif';
         ctx.fillText(categoryLabel, obs.x + obs.width / 2, labelY + 29);
         ctx.textAlign = 'left';
@@ -614,7 +620,7 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
       crouchActionRef.current = null;
       jumpActionRef.current = null;
     };
-  }, [emails, classifications, onMissionComplete]);
+  }, [emails, classifications, onMissionComplete, inboxSource]);
 
   // Fast finish skip button for convenience
   const handleQuickFinish = async () => {
@@ -644,41 +650,54 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
         return { email, cls, action };
       });
 
-      try {
-        const res = await applyActions(remainingRecords.map(({ email, action }) => ({
-          email_id: email.id,
-          action,
-        })));
-        if (res.applied) appliedActionsRef.current.push(...res.applied);
+      if (inboxSource === 'gmail') {
         for (const { email, cls, action } of remainingRecords) {
-          const applied = res.applied?.some(item => item.email_id === email.id);
-          const rejected = res.rejected?.find(item => item.email_id === email.id);
           processedEmailsRef.current.push({
             ...email,
             category: cls.category || 'uncertain',
             priority: cls.priority || 'medium',
             actionTaken: action,
             suggestedAction: cls.suggested_action || 'needs_review',
-            actionStatus: applied ? 'applied' : 'rejected',
-            rejectedReason: rejected?.reason || '',
+            actionStatus: 'pending_confirmation',
           });
         }
-      } catch (err) {
-        setToasts(prev => [...prev, {
-          id: Date.now(),
-          msg: err instanceof Error ? err.message : 'Some actions could not be completed.',
-          type: 'review',
-        }]);
-        for (const { email, cls, action } of remainingRecords) {
-          processedEmailsRef.current.push({
-            ...email,
-            category: cls.category || 'uncertain',
-            priority: cls.priority || 'medium',
-            actionTaken: action,
-            suggestedAction: cls.suggested_action || 'needs_review',
-            actionStatus: 'rejected',
-            rejectedReason: err instanceof Error ? err.message : 'Action could not be completed.',
-          });
+      } else {
+        try {
+          const res = await applyActions(remainingRecords.map(({ email, action }) => ({
+            email_id: email.id,
+            action,
+          })));
+          if (res.applied) appliedActionsRef.current.push(...res.applied);
+          for (const { email, cls, action } of remainingRecords) {
+            const applied = res.applied?.some(item => item.email_id === email.id);
+            const rejected = res.rejected?.find(item => item.email_id === email.id);
+            processedEmailsRef.current.push({
+              ...email,
+              category: cls.category || 'uncertain',
+              priority: cls.priority || 'medium',
+              actionTaken: action,
+              suggestedAction: cls.suggested_action || 'needs_review',
+              actionStatus: applied ? 'applied' : 'rejected',
+              rejectedReason: rejected?.reason || '',
+            });
+          }
+        } catch (err) {
+          setToasts(prev => [...prev, {
+            id: Date.now(),
+            msg: err instanceof Error ? err.message : 'Some actions could not be completed.',
+            type: 'review',
+          }]);
+          for (const { email, cls, action } of remainingRecords) {
+            processedEmailsRef.current.push({
+              ...email,
+              category: cls.category || 'uncertain',
+              priority: cls.priority || 'medium',
+              actionTaken: action,
+              suggestedAction: cls.suggested_action || 'needs_review',
+              actionStatus: 'rejected',
+              rejectedReason: err instanceof Error ? err.message : 'Action could not be completed.',
+            });
+          }
         }
       }
     }

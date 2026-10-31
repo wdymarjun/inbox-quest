@@ -4,6 +4,7 @@ import { LandingScreen } from './screens/LandingScreen';
 import { SetupScreen } from './screens/SetupScreen';
 import { GameScreen } from './screens/GameScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
+import { InboxScreen } from './screens/InboxScreen';
 import { GmailActionReviewModal } from './components/GmailActionReviewModal';
 import {
   fetchInbox,
@@ -19,7 +20,7 @@ import {
 } from './api';
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState('landing'); // 'landing' | 'setup' | 'game' | 'results'
+  const [currentScreen, setCurrentScreen] = useState('landing'); // 'landing' | 'setup' | 'inbox' | 'game' | 'results'
   const [emails, setEmails] = useState([]);
   const [classifications, setClassifications] = useState([]);
   const [missionResults, setMissionResults] = useState(null);
@@ -28,6 +29,7 @@ export default function App() {
   const [inboxSource, setInboxSource] = useState('demo'); // 'demo' | 'gmail'
   const [setupError, setSetupError] = useState('');
   const [oauthError, setOauthError] = useState('');
+  const [gmailActionError, setGmailActionError] = useState('');
   const [pendingSection, setPendingSection] = useState('');
 
   // OAuth authentication state
@@ -65,6 +67,15 @@ export default function App() {
   }, []);
 
   const handleStart = () => {
+    setCurrentScreen('setup');
+  };
+
+  const handleHeaderSignIn = () => {
+    if (authState.configured) {
+      initiateGoogleSignIn();
+      return;
+    }
+
     setCurrentScreen('setup');
   };
 
@@ -113,20 +124,35 @@ export default function App() {
     setInboxSource(selectedSource);
     try {
       const { emails: fetchedEmails, fromBackend: inboxFromBackend } = await fetchInbox(batchSize, selectedSource);
-      setEmails(fetchedEmails);
       if (fetchedEmails.length === 0) {
-        throw new Error('No emails were available for this mission. Please try again.');
+        throw new Error(selectedSource === 'gmail'
+          ? 'No Gmail messages were returned for this batch.'
+          : 'No emails were available for this mission. Please try again.');
       }
       const { classifications: classified, fromBackend: classificationsFromBackend } =
-        await classifyEmails(fetchedEmails);
+        await classifyEmails(fetchedEmails, selectedSource);
+
+      if (selectedSource === 'gmail' && (!inboxFromBackend || !classificationsFromBackend)) {
+        throw new Error('Live Gmail must be loaded and classified by the authenticated backend.');
+      }
+
+      setEmails(fetchedEmails);
       setClassifications(classified);
       setUsingDemoInbox(selectedSource === 'demo' || !inboxFromBackend || !classificationsFromBackend || !isBackendConnected);
-      setCurrentScreen('game');
+      setCurrentScreen(selectedSource === 'gmail' ? 'inbox' : 'game');
     } catch (err) {
       setSetupError(err instanceof Error ? err.message : 'Unable to prepare the mission. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleStartGmailGame = () => {
+    setCurrentScreen('game');
+  };
+
+  const handleBackToSetup = () => {
+    setCurrentScreen('setup');
   };
 
   const handleMissionComplete = (results) => {
@@ -146,9 +172,10 @@ export default function App() {
   const handleConfirmGmailActions = async () => {
     if (!pendingReviewResults) return;
     setApplyingReview(true);
+    setGmailActionError('');
     try {
       const actionsToApply = pendingReviewResults.proposedActions || [];
-      const res = await applyActions(actionsToApply);
+      const res = await applyActions(actionsToApply, 'gmail');
 
       const updatedProcessed = pendingReviewResults.processedEmails.map(p => {
         const wasApplied = res.applied?.some(a => a.email_id === p.id);
@@ -165,7 +192,7 @@ export default function App() {
       setPendingReviewResults(null);
       setCurrentScreen('results');
     } catch (err) {
-      console.error('Failed to confirm and apply Gmail actions:', err);
+      setGmailActionError(err instanceof Error ? err.message : 'Gmail actions could not be confirmed.');
     } finally {
       setApplyingReview(false);
     }
@@ -185,6 +212,7 @@ export default function App() {
       processedEmails: cancelledProcessed,
     });
     setPendingReviewResults(null);
+    setGmailActionError('');
     setCurrentScreen('results');
   };
 
@@ -226,7 +254,13 @@ export default function App() {
             Start Game <span aria-hidden="true">→</span>
           </button>
         </nav>
-        <div className="header-status"><StatusBadge /></div>
+        <div className="header-status">
+          <StatusBadge
+            authState={authState}
+            onSignIn={handleHeaderSignIn}
+            onOpenSetup={() => setCurrentScreen('setup')}
+          />
+        </div>
       </header>
 
       <main className="main-content">
@@ -244,11 +278,21 @@ export default function App() {
             onDevPresetChange={setMockAuthStateForTesting}
           />
         )}
+        {currentScreen === 'inbox' && (
+          <InboxScreen
+            emails={emails}
+            classifications={classifications}
+            accountEmail={authState.user?.email}
+            onStartGame={handleStartGmailGame}
+            onBack={handleBackToSetup}
+          />
+        )}
         {currentScreen === 'game' && (
           <GameScreen
             emails={emails}
             classifications={classifications}
             onMissionComplete={handleMissionComplete}
+            inboxSource={inboxSource}
           />
         )}
         {currentScreen === 'results' && (
@@ -268,6 +312,7 @@ export default function App() {
             onConfirm={handleConfirmGmailActions}
             onCancel={handleCancelGmailActions}
             applying={applyingReview}
+            error={gmailActionError}
           />
         )}
       </main>

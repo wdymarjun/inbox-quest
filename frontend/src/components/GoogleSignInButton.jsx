@@ -1,16 +1,21 @@
 import React from 'react';
 
 /**
- * Official Google Sign-In Button following Google Identity branding guidelines:
- * - Official multi-color Google "G" logo SVG
+ * Google Sign-In button with Google's official multicolor "G" mark.
  * - Standard approved typography and dimensions
  * - Clear hover, active, focus-visible, and disabled states
  */
-export function GoogleSignInButton({ onClick, loading, disabled, label = 'Continue with Google' }) {
+export function GoogleSignInButton({
+  onClick,
+  loading,
+  disabled,
+  label = 'Continue with Google',
+  className = '',
+}) {
   return (
     <button
       type="button"
-      className="google-signin-btn"
+      className={`google-signin-btn ${className}`.trim()}
       onClick={onClick}
       disabled={disabled || loading}
       aria-busy={loading}
@@ -46,4 +51,3 @@ export function GoogleSignInButton({ onClick, loading, disabled, label = 'Contin
     </button>
   );
 }
-
