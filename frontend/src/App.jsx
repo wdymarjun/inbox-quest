@@ -3,6 +3,7 @@ import { StatusBadge } from './components/StatusBadge';
 import { LandingScreen } from './screens/LandingScreen';
 import { SetupScreen } from './screens/SetupScreen';
 import { GameScreen } from './screens/GameScreen';
+import { ResultsScreen } from './screens/ResultsScreen';
 import { fetchInbox, classifyEmails } from './api';
 
 export default function App() {
@@ -36,6 +37,13 @@ export default function App() {
     setCurrentScreen('results');
   };
 
+  const handlePlayAgain = () => {
+    setEmails([]);
+    setClassifications([]);
+    setMissionResults(null);
+    setCurrentScreen('setup');
+  };
+
   return (
     <div className="app-container">
       <header className="app-header">
@@ -60,9 +68,7 @@ export default function App() {
           />
         )}
         {currentScreen === 'results' && (
-          <div className="screen-card">
-            <h3>Mission Results Loading...</h3>
-          </div>
+          <ResultsScreen results={missionResults} onPlayAgain={handlePlayAgain} />
         )}
       </main>
     </div>
