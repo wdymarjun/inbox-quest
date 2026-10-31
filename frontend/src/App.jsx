@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { StatusBadge } from './components/StatusBadge';
 import { LandingScreen } from './screens/LandingScreen';
 import { SetupScreen } from './screens/SetupScreen';
+import { GameScreen } from './screens/GameScreen';
 import { fetchInbox, classifyEmails } from './api';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('landing'); // 'landing' | 'setup' | 'game' | 'results'
   const [emails, setEmails] = useState([]);
   const [classifications, setClassifications] = useState([]);
+  const [missionResults, setMissionResults] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const handleStart = () => {
@@ -29,6 +31,11 @@ export default function App() {
     }
   };
 
+  const handleMissionComplete = (results) => {
+    setMissionResults(results);
+    setCurrentScreen('results');
+  };
+
   return (
     <div className="app-container">
       <header className="app-header">
@@ -46,8 +53,15 @@ export default function App() {
           <SetupScreen onBeginMission={handleBeginMission} loading={loading} />
         )}
         {currentScreen === 'game' && (
+          <GameScreen
+            emails={emails}
+            classifications={classifications}
+            onMissionComplete={handleMissionComplete}
+          />
+        )}
+        {currentScreen === 'results' && (
           <div className="screen-card">
-            <h3>Mission Runner Initializing...</h3>
+            <h3>Mission Results Loading...</h3>
           </div>
         )}
       </main>
