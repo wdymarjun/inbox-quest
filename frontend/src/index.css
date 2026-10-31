@@ -5716,6 +5716,45 @@ canvas:focus-visible {
   }
 }
 
+.intro-spotlight {
+  isolation: isolate;
+}
+
+.intro-spotlight::before {
+  position: absolute;
+  z-index: -1;
+  top: -12%;
+  right: 0;
+  bottom: 8%;
+  left: 0;
+  background-image:
+    radial-gradient(circle, rgba(235, 235, 235, 0.2) 1px, transparent 1.5px),
+    linear-gradient(rgba(220, 220, 220, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(220, 220, 220, 0.055) 1px, transparent 1px);
+  background-size: 34px 34px;
+  content: "";
+  opacity: 0.62;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 8%, rgba(0, 0, 0, 0.78) 44%, transparent 78%);
+  mask-image: radial-gradient(ellipse at center, #000 8%, rgba(0, 0, 0, 0.78) 44%, transparent 78%);
+}
+
+.intro-spotlight > .eyebrow,
+.intro-spotlight > h2,
+.intro-spotlight > p {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 760px) {
+  .intro-spotlight::before {
+    top: -4%;
+    bottom: 5%;
+    background-size: 28px 28px;
+    opacity: 0.48;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .assistant-panel,
   .assistant-message {
