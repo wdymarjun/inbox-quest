@@ -1,4 +1,12 @@
 import { getMockInboxBatch, mockClassify } from './mock/mockInbox';
+export {
+  checkAuthStatus,
+  initiateGoogleSignIn,
+  disconnectGoogle,
+  subscribeAuthState,
+  consumeUrlAuthParams,
+  setMockAuthStateForTesting,
+} from './auth';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
@@ -26,17 +34,20 @@ const localEmailStates = new Map();
 
 /**
  * Fetch inbox emails batch (size: 10, 25, 50)
+ * source: 'demo' | 'gmail'
  */
-export async function fetchInbox(size = 25) {
+export async function fetchInbox(size = 25, source = 'demo') {
   try {
-    const res = await fetch(`${BASE_URL}/api/inbox?size=${size}`, {
-      signal: AbortSignal.timeout(3000),
+    const url = `${BASE_URL}/api/inbox?size=${size}${source === 'gmail' ? '&source=gmail' : ''}`;
+    const res = await fetch(url, {
+      credentials: 'include', // passes session cookie if signed in
+      signal: AbortSignal.timeout(3500),
     });
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     const data = await res.json();
     if (Array.isArray(data) && data.length > 0) {
       updateBackendStatus(true);
-      return { emails: data, fromBackend: true };
+      return { emails: data, fromBackend: true, source };
     }
 
     updateBackendStatus(false);
@@ -44,7 +55,7 @@ export async function fetchInbox(size = 25) {
     updateBackendStatus(false);
   }
 
-  return { emails: getMockInboxBatch(size), fromBackend: false };
+  return { emails: getMockInboxBatch(size), fromBackend: false, source: 'demo' };
 }
 
 /**
@@ -54,6 +65,7 @@ export async function classifyEmails(emails) {
   try {
     const res = await fetch(`${BASE_URL}/api/classify`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ emails }),
       signal: AbortSignal.timeout(4000),
@@ -79,9 +91,10 @@ export async function applyActions(actions) {
   try {
     const res = await fetch(`${BASE_URL}/api/actions/apply`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ actions }),
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(3500),
     });
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     const data = await res.json();
@@ -123,9 +136,10 @@ export async function undoActions(actionIds) {
   try {
     const res = await fetch(`${BASE_URL}/api/actions/undo`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action_ids: actionIds }),
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(3500),
     });
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     const data = await res.json();
@@ -159,6 +173,7 @@ export async function undoActions(actionIds) {
 export async function fetchSummary() {
   try {
     const res = await fetch(`${BASE_URL}/api/summary`, {
+      credentials: 'include',
       signal: AbortSignal.timeout(3000),
     });
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);

@@ -18,7 +18,7 @@ const categoryLabels = {
   uncertain: 'Uncertain',
 };
 
-export function ResultsScreen({ results, onPlayAgain, usingDemoInbox }) {
+export function ResultsScreen({ results, onPlayAgain, usingDemoInbox, inboxSource, connectedEmail }) {
   const { appliedActions = [], processedEmails = [] } = results || {};
   const [undoDone, setUndoDone] = useState(false);
   const [undoLoading, setUndoLoading] = useState(false);
@@ -74,7 +74,12 @@ export function ResultsScreen({ results, onPlayAgain, usingDemoInbox }) {
         <span className="mission-complete-mark" aria-hidden="true">✓</span>
       </div>
 
-      {usingDemoInbox ? (
+      {inboxSource === 'gmail' && connectedEmail ? (
+        <div className="demo-notice live-gmail-notice" role="status">
+          <strong>Live Gmail Account ({connectedEmail})</strong>
+          <span>Real Gmail actions verified and applied. No deletions were made.</span>
+        </div>
+      ) : usingDemoInbox ? (
         <div className="demo-notice" role="status">
           <strong>Demo inbox</strong>
           <span>Prototype mode — using sample inbox data.</span>
@@ -174,7 +179,7 @@ export function ResultsScreen({ results, onPlayAgain, usingDemoInbox }) {
         >
           {undoLoading ? 'Undoing mission…' : undoDone ? 'Mission Undone' : '↶ Undo Mission'}
         </button>
-        <button className="btn-primary" onClick={onPlayAgain}>Run Another Mission →</button>
+        <button className="btn-primary" onClick={onPlayAgain}>Play Again →</button>
       </div>
     </div>
   );

@@ -60,9 +60,9 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
     // Robot state
     const robot = {
       x: 90,
-      y: groundY - 45,
-      width: 40,
-      height: 45,
+      y: groundY - 38,
+      width: 60,
+      height: 38,
       vy: 0,
       isGrounded: true,
       jumps: 0,
@@ -137,7 +137,7 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
       if (isCrouching && !robot.isGrounded) return;
       const feetY = robot.y + robot.height;
       robot.crouching = isCrouching;
-      robot.height = isCrouching ? 27 : 45;
+      robot.height = isCrouching ? 25 : 38;
       robot.y = feetY - robot.height;
     };
     jumpActionRef.current = jump;
@@ -305,86 +305,115 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
         spawnTimer = spawnInterval;
       }
 
-      // Clear background
-      ctx.fillStyle = '#080808';
+      // Deep-space backdrop
+      ctx.fillStyle = '#08090b';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+      const horizonGlow = ctx.createLinearGradient(0, groundY - 95, 0, groundY + 10);
+      horizonGlow.addColorStop(0, 'rgba(255, 255, 255, 0)');
+      horizonGlow.addColorStop(1, 'rgba(255, 255, 255, 0.055)');
+      ctx.fillStyle = horizonGlow;
+      ctx.fillRect(0, groundY - 95, canvas.width, 105);
+
       // Distant stars
-      ctx.fillStyle = '#1c1c1c';
       for (let s = 0; s < 30; s++) {
         const sx = ((s * 73 + currentTime * 0.02) % canvas.width);
         const sy = (s * 37) % (groundY - 50);
-        ctx.fillRect(sx, sy, 2, 2);
+        const starSize = s % 5 === 0 ? 2 : 1;
+        ctx.fillStyle = s % 5 === 0 ? 'rgba(235, 239, 244, 0.52)' : 'rgba(190, 198, 208, 0.3)';
+        ctx.fillRect(sx, sy, starSize, starSize);
       }
 
-      // Ground platform
-      ctx.fillStyle = '#141414';
-      ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
-      ctx.fillStyle = '#f0f0f0';
-      ctx.fillRect(0, groundY, canvas.width, 3);
+      // Distant moon gives the route a clear horizon and sense of depth.
+      ctx.save();
+      ctx.globalAlpha = 0.13;
+      ctx.fillStyle = '#d7dde4';
+      ctx.beginPath();
+      ctx.arc(735, 115, 48, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 0.18;
+      ctx.strokeStyle = '#d7dde4';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(735, 115, 70, 18, -0.25, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
 
-      // Running grid lines on ground
-      ctx.strokeStyle = '#252525';
+      // Flat, high-contrast runway.
+      ctx.fillStyle = '#111316';
+      ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+      ctx.fillStyle = '#dce1e7';
+      ctx.fillRect(0, groundY, canvas.width, 3);
+      ctx.fillStyle = 'rgba(220, 225, 231, 0.13)';
+      ctx.fillRect(0, groundY + 3, canvas.width, 1);
+
+      // Subtle ground motion, kept below the play lane.
+      ctx.strokeStyle = '#25292e';
       ctx.lineWidth = 1;
       const gridOffset = (currentTime * 0.22) % 40;
       for (let gx = -gridOffset; gx < canvas.width; gx += 40) {
         ctx.beginPath();
         ctx.moveTo(gx, groundY);
-        ctx.lineTo(gx - 60, canvas.height);
+        ctx.lineTo(gx - 48, canvas.height);
         ctx.stroke();
       }
 
-      // Draw Robot Courier
+      // Draw the courier UFO.
       ctx.save();
-      ctx.translate(robot.x, robot.y);
-      if (robot.crouching) ctx.scale(1, 0.6);
+      const flightHeight = Math.max(0, groundY - (robot.y + robot.height));
+      const hover = robot.isGrounded ? Math.sin(currentTime * 0.006) * 2 : 0;
+      const saucerX = robot.x + robot.width / 2;
+      const saucerY = robot.y + robot.height * 0.25 + hover;
+      const beamHeight = robot.crouching ? 9 : 15;
 
-      // Courier backpack / data core
-      ctx.fillStyle = '#bdbdbd';
+      ctx.globalAlpha = Math.max(0.08, 0.24 - flightHeight / 950);
+      ctx.fillStyle = '#dfe7ef';
       ctx.beginPath();
-      ctx.roundRect(-6, 8, 8, 20, 3);
+      ctx.ellipse(saucerX, groundY + 8, Math.max(13, 30 - flightHeight * 0.08), 5, 0, 0, Math.PI * 2);
       ctx.fill();
+      ctx.globalAlpha = 1;
 
-      // Main torso
-      ctx.fillStyle = '#f2f2f2';
+      ctx.globalAlpha = robot.isGrounded ? 0.25 : 0.4;
+      ctx.fillStyle = '#d7e1eb';
       ctx.beginPath();
-      ctx.roundRect(0, 5, robot.width - 6, 26, 6);
+      ctx.moveTo(saucerX - 10, saucerY + 3);
+      ctx.lineTo(saucerX + 10, saucerY + 3);
+      ctx.lineTo(saucerX + 21, saucerY + beamHeight);
+      ctx.lineTo(saucerX - 21, saucerY + beamHeight);
+      ctx.closePath();
       ctx.fill();
-      ctx.strokeStyle = '#ffffff';
+      ctx.globalAlpha = 1;
+
+      ctx.fillStyle = '#242a31';
+      ctx.beginPath();
+      ctx.ellipse(saucerX, saucerY + 7, 29, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#f1f4f7';
       ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(saucerX, saucerY + 7, 29, 10, 0, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Visor / Screen eye
-      ctx.fillStyle = '#171717';
+      ctx.fillStyle = '#e5e9ed';
       ctx.beginPath();
-      ctx.roundRect(14, 10, 16, 8, 3);
+      ctx.ellipse(saucerX, saucerY + 2, 19, 7, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(18, 12, 6, 4);
 
-      // Antenna
-      ctx.strokeStyle = '#d0d0d0';
-      ctx.lineWidth = 2;
+      ctx.fillStyle = '#b9c3cc';
       ctx.beginPath();
-      ctx.moveTo(15, 5);
-      ctx.lineTo(15, -4);
+      ctx.ellipse(saucerX, saucerY - 2, 12, 10, 0, Math.PI, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#f7f8fa';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(saucerX, saucerY - 2, 12, 10, 0, Math.PI, Math.PI * 2);
       ctx.stroke();
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(15, -5, 3, 0, Math.PI * 2);
-      ctx.fill();
 
-      // Animated legs
-      ctx.fillStyle = '#737373';
-      if (robot.isGrounded) {
-        const leg1 = Math.sin(robot.legPhase) * 6;
-        const leg2 = -leg1;
-        ctx.fillRect(6, 31, 6, 12 + leg1);
-        ctx.fillRect(20, 31, 6, 12 + leg2);
-      } else {
-        // Tucked jump legs
-        ctx.fillRect(6, 31, 6, 8);
-        ctx.fillRect(20, 31, 6, 8);
+      for (let light = -1; light <= 1; light++) {
+        ctx.fillStyle = Math.sin(currentTime * 0.008 + light) > -0.35 ? '#ffffff' : '#9da8b2';
+        ctx.beginPath();
+        ctx.arc(saucerX + light * 16, saucerY + 8, 1.8, 0, Math.PI * 2);
+        ctx.fill();
       }
 
       ctx.restore();
@@ -395,11 +424,17 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
         obs.x -= gameSpeed * dt;
 
         // Collision check
+        const hitbox = {
+          x: robot.x + 8,
+          y: robot.y + 7,
+          width: robot.width - 16,
+          height: robot.height - 11,
+        };
         const collides =
-          robot.x < obs.x + obs.width &&
-          robot.x + robot.width > obs.x &&
-          robot.y < obs.y + obs.height &&
-          robot.y + robot.height > obs.y;
+          hitbox.x < obs.x + obs.width &&
+          hitbox.x + hitbox.width > obs.x &&
+          hitbox.y < obs.y + obs.height &&
+          hitbox.y + hitbox.height > obs.y;
 
         const passed = obs.x + obs.width + 10 < robot.x;
 
@@ -422,75 +457,96 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
         // Draw obstacle
         ctx.save();
         if (obs.type === 'junk') {
-          // Hazard junk pile
-          ctx.fillStyle = obs.color;
-          ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
-          ctx.fillStyle = '#444444';
-          ctx.fillRect(obs.x + 4, obs.y + 4, obs.width - 8, obs.height - 8);
-          // Label
-          ctx.fillStyle = '#ffffff';
-          ctx.font = '10px sans-serif';
-          ctx.fillText('PROMO', obs.x + 1, obs.y - 6);
+          ctx.fillStyle = '#252b32';
+          ctx.strokeStyle = '#e5e9ed';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect(obs.x, obs.y + 2, obs.width, obs.height - 2, 5);
+          ctx.fill();
+          ctx.stroke();
+          ctx.strokeStyle = '#f2f4f6';
+          ctx.beginPath();
+          ctx.moveTo(obs.x + 6, obs.y + 9);
+          ctx.lineTo(obs.x + obs.width / 2, obs.y + 19);
+          ctx.lineTo(obs.x + obs.width - 6, obs.y + 9);
+          ctx.stroke();
         } else if (obs.type === 'overhead') {
-          ctx.shadowColor = '#bdbdbd';
-          ctx.shadowBlur = 14;
-          ctx.fillStyle = obs.color;
+          ctx.fillStyle = '#dfe4e9';
+          ctx.beginPath();
+          ctx.roundRect(obs.x, obs.y, obs.width, obs.height, 6);
+          ctx.fill();
+          ctx.fillStyle = '#111417';
+          ctx.beginPath();
+          ctx.moveTo(obs.x + 7, obs.y + 8);
+          ctx.lineTo(obs.x + obs.width / 2, obs.y + 19);
+          ctx.lineTo(obs.x + obs.width - 7, obs.y + 8);
+          ctx.strokeStyle = '#111417';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.fillRect(obs.x + 8, obs.y + obs.height - 2, 4, 8);
+          ctx.fillRect(obs.x + obs.width - 12, obs.y + obs.height - 2, 4, 8);
+        } else if (obs.type === 'cargo') {
+          ctx.fillStyle = '#e1e5e9';
+          ctx.beginPath();
+          ctx.roundRect(obs.x + 2, obs.y, obs.width - 4, obs.height, 3);
+          ctx.fill();
+          ctx.fillStyle = '#30363d';
+          ctx.fillRect(obs.x + 8, obs.y + 7, obs.width - 16, 2);
+          ctx.fillRect(obs.x + 8, obs.y + 13, obs.width - 13, 2);
+          ctx.fillRect(obs.x + 8, obs.y + 19, obs.width - 18, 2);
+        } else if (obs.type === 'beacon') {
+          const pulse = 0.75 + Math.sin(currentTime * 0.006) * 0.15;
+          ctx.globalAlpha = pulse * 0.22;
+          ctx.fillStyle = '#f2f5f8';
+          ctx.beginPath();
+          ctx.arc(obs.x + obs.width / 2, obs.y + obs.height / 2, 20, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = '#252b32';
+          ctx.strokeStyle = '#e6ebef';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect(obs.x + 1, obs.y + 3, obs.width - 2, 25, 5);
+          ctx.fill();
+          ctx.stroke();
+          ctx.strokeStyle = '#f3f5f7';
+          ctx.beginPath();
+          ctx.moveTo(obs.x + 6, obs.y + 10);
+          ctx.lineTo(obs.x + obs.width / 2, obs.y + 19);
+          ctx.lineTo(obs.x + obs.width - 6, obs.y + 10);
+          ctx.stroke();
+        } else if (obs.type === 'question') {
+          ctx.fillStyle = '#252b32';
+          ctx.strokeStyle = '#cbd2d9';
+          ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.roundRect(obs.x, obs.y, obs.width, obs.height, 8);
           ctx.fill();
-          ctx.shadowBlur = 0;
-          ctx.fillStyle = '#292929';
-          ctx.fillRect(obs.x + 8, obs.y + obs.height - 5, 5, 13);
-          ctx.fillRect(obs.x + obs.width - 13, obs.y + obs.height - 5, 5, 13);
-          ctx.fillStyle = '#101010';
-          ctx.font = 'bold 9px sans-serif';
-          ctx.fillText('DUCK', obs.x + 20, obs.y + 17);
-        } else if (obs.type === 'cargo') {
-          // Green cargo box
-          ctx.fillStyle = obs.color;
-          ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
-          ctx.fillStyle = '#444444';
-          ctx.fillRect(obs.x + 4, obs.y + 4, obs.width - 8, obs.height - 8);
-          ctx.fillStyle = '#ffffff';
-          ctx.font = '10px sans-serif';
-          ctx.fillText('BILL', obs.x + 6, obs.y - 6);
-        } else if (obs.type === 'beacon') {
-          // Glowing blue beacon
-          const glow = Math.sin(currentTime * 0.008) * 4;
-          ctx.shadowColor = '#bdbdbd';
-          ctx.shadowBlur = 12 + glow;
-          ctx.fillStyle = '#a8a8a8';
-          ctx.beginPath();
-          ctx.arc(obs.x + obs.width / 2, obs.y + obs.height / 2, 14, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = '#f2f2f2';
-          ctx.beginPath();
-          ctx.arc(obs.x + obs.width / 2, obs.y + obs.height / 2, 6, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.shadowBlur = 0;
-          ctx.fillStyle = '#f0f0f0';
-          ctx.font = '10px sans-serif';
-          ctx.fillText('ALERT', obs.x - 3, obs.y - 8);
-        } else if (obs.type === 'question') {
-          // Amber question box
-          ctx.fillStyle = obs.color;
-          ctx.beginPath();
-          ctx.roundRect(obs.x, obs.y, obs.width, obs.height, 4);
-          ctx.fill();
-          ctx.fillStyle = '#111111';
-          ctx.font = 'bold 16px sans-serif';
-          ctx.fillText('?', obs.x + 10, obs.y + 22);
-          ctx.fillStyle = '#d0d0d0';
-          ctx.font = '10px sans-serif';
-          ctx.fillText('REVIEW', obs.x - 4, obs.y - 6);
+          ctx.stroke();
+          ctx.fillStyle = '#f4f6f8';
+          ctx.font = 'bold 19px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('?', obs.x + obs.width / 2, obs.y + 21);
+          ctx.textAlign = 'left';
         }
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '10px sans-serif';
+
         const senderLabel = obs.email.sender.split('@')[0].slice(0, 15);
-        ctx.fillText(senderLabel, obs.x - 12, obs.y - 20);
-        ctx.font = '9px sans-serif';
-        ctx.fillStyle = obs.type === 'question' ? '#d0d0d0' : obs.color;
-        ctx.fillText(obs.classification.category.replace('_', ' ').toUpperCase(), obs.x - 12, obs.y - 8);
+        const categoryLabel = obs.classification.category.replace('_', ' ').toUpperCase();
+        ctx.font = 'bold 12px sans-serif';
+        const labelWidth = Math.max(ctx.measureText(senderLabel).width, ctx.measureText(categoryLabel).width) + 16;
+        const labelX = obs.x + obs.width / 2 - labelWidth / 2;
+        const labelY = obs.y - 39;
+        ctx.fillStyle = 'rgba(17, 20, 23, 0.94)';
+        ctx.beginPath();
+        ctx.roundRect(labelX, labelY, labelWidth, 36, 5);
+        ctx.fill();
+        ctx.fillStyle = '#f2f4f6';
+        ctx.textAlign = 'center';
+        ctx.fillText(senderLabel, obs.x + obs.width / 2, labelY + 14);
+        ctx.fillStyle = '#bec6ce';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillText(categoryLabel, obs.x + obs.width / 2, labelY + 29);
+        ctx.textAlign = 'left';
         ctx.restore();
 
         // Cull offscreen
@@ -666,7 +722,7 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
         <canvas
           ref={canvasRef}
           tabIndex={0}
-          aria-label="Courier runner game. Jump to clear low obstacles and crouch under purple overhead barriers."
+          aria-label="Courier UFO runner game. Jump to clear low email hazards and crouch beneath overhead mail."
         />
         <div className="toast-overlay">
           {toasts.map(toast => (
