@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { classifyEmails } from './classifier.js';
 import { actionLog } from './actionLog.js';
+import { askAssistant, validateAssistantInput, assistantRateLimiter } from './assistant/brain.js';
 
 dotenv.config();
 
@@ -106,6 +107,39 @@ app.get('/api/summary', (req, res) => {
   const summary = actionLog.getSummary();
   return res.json(summary);
 });
+
+/**
+ * POST /api/assistant/chat
+ * Dedicated, narrowly scoped help assistant for Inbox Quest
+ */
+export async function handleAssistantChat(req, res) {
+  // 1. Rate limiting by IP
+  const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
+  if (assistantRateLimiter.isRateLimited(clientIp)) {
+    return res.status(429).json({
+      error: 'Too many requests. Please wait a moment before asking another question.',
+    });
+  }
+
+  // 2. Input validation
+  const validation = validateAssistantInput(req.body);
+  if (!validation.valid) {
+    return res.status(400).json({ error: validation.error });
+  }
+
+  // 3. Ask assistant brain
+  try {
+    const result = await askAssistant(validation.data);
+    return res.json({ answer: result.answer });
+  } catch (err) {
+    const status = err.status || 500;
+    return res.status(status).json({
+      error: err.message || 'Assistant service encountered an issue.',
+    });
+  }
+}
+
+app.post('/api/assistant/chat', handleAssistantChat);
 
 // Health check
 app.get('/health', (req, res) => {

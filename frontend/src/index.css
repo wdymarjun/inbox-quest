@@ -58,16 +58,12 @@ body {
 }
 
 .logo-icon {
-  width: 28px;
-  height: 28px;
-  background: var(--accent-blue);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  font-weight: 700;
-  font-size: 0.9rem;
+  display: block;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 11px;
 }
 
 .logo-title {
@@ -503,9 +499,9 @@ canvas {
 }
 
 .logo-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 11px;
+  flex-basis: 40px;
+  width: 40px;
+  height: 40px;
   font-size: 0.95rem;
 }
 
@@ -1874,8 +1870,7 @@ body {
 }
 
 .logo-icon {
-  color: #080808;
-  background: #f4f4f4;
+  background: transparent;
 }
 
 .logo-title,

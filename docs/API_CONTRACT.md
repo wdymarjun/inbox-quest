@@ -198,3 +198,43 @@ Do not include message bodies or tokens in this list response. The inbox UI is a
 - `POST /api/gmail/actions/undo` accepts `action_ids`, restores the exact prior Gmail label state for each applied action where possible, and returns the same `undone` / `failed` response shape as `/api/actions/undo`.
 
 The backend must store enough prior Gmail state to support undo. A frontend OAuth session or inbox preview is not authorization to apply actions; the user must confirm the action-review dialog first. If these Gmail endpoints are unavailable, frontend Gmail actions must fail visibly and must not report local-only success.
+
+
+---
+
+## 6. POST `/api/assistant/chat`
+
+Dedicated in-product help assistant for Inbox Quest. The assistant is strictly limited to explaining Inbox Quest itself (gameplay controls, demo mode, navigation, scoring, safety rules, and Google/Gmail workflows). It rejects out-of-scope requests, coding/scripting questions, and prompt-override attempts.
+
+### Request Body
+```json
+{
+  "message": "How do I jump?",
+  "history": [
+    { "role": "user", "content": "Hello" },
+    { "role": "assistant", "content": "Hi! How can I help you with Inbox Quest?" }
+  ],
+  "pageContext": {
+    "screen": "game"
+  }
+}
+```
+
+### Input Limits
+- `message` (required): Non-empty string, trimmed, maximum 1,000 characters.
+- `history` (optional): Array of up to 6 objects with `role` (`"user"` or `"assistant"`) and non-empty `content` (max 1,000 characters each).
+- `pageContext.screen` (optional): Must be one of `landing`, `setup`, `inbox`, `game`, `results`. All other fields or unknown screens are rejected.
+- Request payload must not contain arbitrary keys (`systemPrompt`, `tools`, `model`, etc.).
+
+### Response (200 OK)
+```json
+{
+  "answer": "Press Space or Up Arrow to jump. On mobile, tap the on-screen Jump control."
+}
+```
+
+### Error Responses
+- `400 Bad Request`: Missing or invalid `message`, oversized payload, invalid `history` roles, or disallowed parameters.
+- `429 Too Many Requests`: Rate limit exceeded (default 20 requests per minute per IP).
+- `502 Bad Gateway`: Gemini API provider failure or request timeout (10 seconds).
+- `503 Service Unavailable`: `GEMINI_API_KEY` is not configured on the backend server.

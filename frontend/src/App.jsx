@@ -229,7 +229,7 @@ export default function App() {
     <div className="app-container">
       <header className="app-header">
         <button className="logo-area logo-home-button" onClick={() => handleSectionNavigation('home')} aria-label="Inbox Quest home">
-          <div className="logo-icon">IQ</div>
+          <img className="logo-icon" src="/inbox-quest-icon.svg" alt="" aria-hidden="true" />
           <span className="logo-title">Inbox Quest</span>
           <span className="logo-tagline">A calmer inbox, one mission at a time</span>
         </button>
