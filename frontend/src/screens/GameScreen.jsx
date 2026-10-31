@@ -13,6 +13,7 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
   const [hearts, setHearts] = useState(3);
   const [processedIndex, setProcessedIndex] = useState(0);
   const [fastForwarding, setFastForwarding] = useState(false);
+  const [crouchActive, setCrouchActive] = useState(false);
 
   // Store actions applied for undo
   const appliedActionsRef = useRef([]);
@@ -21,6 +22,14 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
   const resolvingEmailsRef = useRef(new Set());
   const fastForwardRef = useRef(false);
   const missionCompleteScheduledRef = useRef(false);
+  const crouchActionRef = useRef(null);
+  const jumpActionRef = useRef(null);
+
+  const handleCrouchChange = (isCrouching) => {
+    setCrouchActive(isCrouching);
+    crouchActionRef.current?.(isCrouching);
+  };
+  const handleJump = () => jumpActionRef.current?.();
 
   // Toast helper
   const addToast = (msg, type = 'archive') => {
@@ -59,6 +68,7 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
       jumps: 0,
       maxJumps: 2,
       legPhase: 0,
+      crouching: false,
     };
 
     // Obstacles queue generated from emails + classifications
@@ -97,7 +107,7 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
             y: robot.y + robot.height,
             vx: (Math.random() - 0.5) * 100,
             vy: Math.random() * 150 + 50,
-            color: '#60a5fa',
+            color: '#d8d8d8',
             size: Math.random() * 4 + 2,
             life: 0.35,
             maxLife: 0.35,
@@ -110,10 +120,30 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
       if (e.code === 'Space' || e.code === 'ArrowUp') {
         e.preventDefault();
         jump();
+      } else if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+        e.preventDefault();
+        handleCrouchChange(true);
       }
     };
 
+    const handleKeyUp = (e) => {
+      if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+        handleCrouchChange(false);
+      }
+    };
+
+    const handleWindowBlur = () => handleCrouchChange(false);
+    crouchActionRef.current = (isCrouching) => {
+      if (isCrouching && !robot.isGrounded) return;
+      const feetY = robot.y + robot.height;
+      robot.crouching = isCrouching;
+      robot.height = isCrouching ? 27 : 45;
+      robot.y = feetY - robot.height;
+    };
+    jumpActionRef.current = jump;
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleWindowBlur);
     canvas.addEventListener('pointerdown', jump);
 
     // Particle burst helper
@@ -233,26 +263,32 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
         let obsY = groundY - 32;
         let obsW = 34;
         let obsH = 32;
-        let color = '#2563eb';
+        let color = '#d8d8d8';
 
-        if (cat === 'receipt_bill') {
+        if (cat === 'newsletter') {
+          type = 'overhead';
+          obsY = groundY - 57;
+          obsW = 66;
+          obsH = 28;
+          color = '#bdbdbd';
+        } else if (cat === 'receipt_bill') {
           type = 'cargo';
           obsY = groundY - 28;
           obsW = 32;
           obsH = 28;
-          color = '#2563eb';
+          color = '#b8b8b8';
         } else if (cat === 'important') {
           type = 'beacon';
           obsY = groundY - 110;
           obsW = 28;
           obsH = 34;
-          color = '#172554';
+          color = '#eeeeee';
         } else if (cat === 'uncertain') {
           type = 'question';
           obsY = groundY - 65;
           obsW = 30;
           obsH = 30;
-          color = '#fbbf24'; // amber
+          color = '#858585';
         }
 
         activeObstacles.push({
@@ -270,11 +306,11 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
       }
 
       // Clear background
-      ctx.fillStyle = '#0b1329';
+      ctx.fillStyle = '#080808';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Distant stars
-      ctx.fillStyle = '#1e293b';
+      ctx.fillStyle = '#1c1c1c';
       for (let s = 0; s < 30; s++) {
         const sx = ((s * 73 + currentTime * 0.02) % canvas.width);
         const sy = (s * 37) % (groundY - 50);
@@ -282,13 +318,13 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
       }
 
       // Ground platform
-      ctx.fillStyle = '#1e293b';
+      ctx.fillStyle = '#141414';
       ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
-      ctx.fillStyle = '#3b82f6';
+      ctx.fillStyle = '#f0f0f0';
       ctx.fillRect(0, groundY, canvas.width, 3);
 
       // Running grid lines on ground
-      ctx.strokeStyle = '#334155';
+      ctx.strokeStyle = '#252525';
       ctx.lineWidth = 1;
       const gridOffset = (currentTime * 0.22) % 40;
       for (let gx = -gridOffset; gx < canvas.width; gx += 40) {
@@ -301,44 +337,45 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
       // Draw Robot Courier
       ctx.save();
       ctx.translate(robot.x, robot.y);
+      if (robot.crouching) ctx.scale(1, 0.6);
 
       // Courier backpack / data core
-      ctx.fillStyle = '#2563eb';
+      ctx.fillStyle = '#bdbdbd';
       ctx.beginPath();
       ctx.roundRect(-6, 8, 8, 20, 3);
       ctx.fill();
 
       // Main torso
-      ctx.fillStyle = '#e2e8f0';
+      ctx.fillStyle = '#f2f2f2';
       ctx.beginPath();
       ctx.roundRect(0, 5, robot.width - 6, 26, 6);
       ctx.fill();
-      ctx.strokeStyle = '#94a3b8';
+      ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2;
       ctx.stroke();
 
       // Visor / Screen eye
-      ctx.fillStyle = '#0284c7';
+      ctx.fillStyle = '#171717';
       ctx.beginPath();
       ctx.roundRect(14, 10, 16, 8, 3);
       ctx.fill();
-      ctx.fillStyle = '#38bdf8';
+      ctx.fillStyle = '#ffffff';
       ctx.fillRect(18, 12, 6, 4);
 
       // Antenna
-      ctx.strokeStyle = '#94a3b8';
+      ctx.strokeStyle = '#d0d0d0';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(15, 5);
       ctx.lineTo(15, -4);
       ctx.stroke();
-      ctx.fillStyle = '#38bdf8';
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.arc(15, -5, 3, 0, Math.PI * 2);
       ctx.fill();
 
       // Animated legs
-      ctx.fillStyle = '#475569';
+      ctx.fillStyle = '#737373';
       if (robot.isGrounded) {
         const leg1 = Math.sin(robot.legPhase) * 6;
         const leg2 = -leg1;
@@ -388,17 +425,31 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
           // Hazard junk pile
           ctx.fillStyle = obs.color;
           ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
-          ctx.fillStyle = '#1d4ed8';
+          ctx.fillStyle = '#444444';
           ctx.fillRect(obs.x + 4, obs.y + 4, obs.width - 8, obs.height - 8);
           // Label
           ctx.fillStyle = '#ffffff';
           ctx.font = '10px sans-serif';
           ctx.fillText('PROMO', obs.x + 1, obs.y - 6);
+        } else if (obs.type === 'overhead') {
+          ctx.shadowColor = '#bdbdbd';
+          ctx.shadowBlur = 14;
+          ctx.fillStyle = obs.color;
+          ctx.beginPath();
+          ctx.roundRect(obs.x, obs.y, obs.width, obs.height, 8);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = '#292929';
+          ctx.fillRect(obs.x + 8, obs.y + obs.height - 5, 5, 13);
+          ctx.fillRect(obs.x + obs.width - 13, obs.y + obs.height - 5, 5, 13);
+          ctx.fillStyle = '#101010';
+          ctx.font = 'bold 9px sans-serif';
+          ctx.fillText('DUCK', obs.x + 20, obs.y + 17);
         } else if (obs.type === 'cargo') {
           // Green cargo box
           ctx.fillStyle = obs.color;
           ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
-          ctx.fillStyle = '#1d4ed8';
+          ctx.fillStyle = '#444444';
           ctx.fillRect(obs.x + 4, obs.y + 4, obs.width - 8, obs.height - 8);
           ctx.fillStyle = '#ffffff';
           ctx.font = '10px sans-serif';
@@ -406,18 +457,18 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
         } else if (obs.type === 'beacon') {
           // Glowing blue beacon
           const glow = Math.sin(currentTime * 0.008) * 4;
-          ctx.shadowColor = '#172554';
+          ctx.shadowColor = '#bdbdbd';
           ctx.shadowBlur = 12 + glow;
-          ctx.fillStyle = '#172554';
+          ctx.fillStyle = '#a8a8a8';
           ctx.beginPath();
           ctx.arc(obs.x + obs.width / 2, obs.y + obs.height / 2, 14, 0, Math.PI * 2);
           ctx.fill();
-          ctx.fillStyle = '#e0f2fe';
+          ctx.fillStyle = '#f2f2f2';
           ctx.beginPath();
           ctx.arc(obs.x + obs.width / 2, obs.y + obs.height / 2, 6, 0, Math.PI * 2);
           ctx.fill();
           ctx.shadowBlur = 0;
-          ctx.fillStyle = '#38bdf8';
+          ctx.fillStyle = '#f0f0f0';
           ctx.font = '10px sans-serif';
           ctx.fillText('ALERT', obs.x - 3, obs.y - 8);
         } else if (obs.type === 'question') {
@@ -426,10 +477,10 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
           ctx.beginPath();
           ctx.roundRect(obs.x, obs.y, obs.width, obs.height, 4);
           ctx.fill();
-          ctx.fillStyle = '#78350f';
+          ctx.fillStyle = '#111111';
           ctx.font = 'bold 16px sans-serif';
           ctx.fillText('?', obs.x + 10, obs.y + 22);
-          ctx.fillStyle = '#fbbf24';
+          ctx.fillStyle = '#d0d0d0';
           ctx.font = '10px sans-serif';
           ctx.fillText('REVIEW', obs.x - 4, obs.y - 6);
         }
@@ -438,7 +489,7 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
         const senderLabel = obs.email.sender.split('@')[0].slice(0, 15);
         ctx.fillText(senderLabel, obs.x - 12, obs.y - 20);
         ctx.font = '9px sans-serif';
-        ctx.fillStyle = obs.type === 'question' ? '#fbbf24' : obs.color;
+        ctx.fillStyle = obs.type === 'question' ? '#d0d0d0' : obs.color;
         ctx.fillText(obs.classification.category.replace('_', ' ').toUpperCase(), obs.x - 12, obs.y - 8);
         ctx.restore();
 
@@ -468,9 +519,9 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
 
       // Top live progress bar
       const progress = emails.length > 0 ? processedEmailsRef.current.length / emails.length : 0;
-      ctx.fillStyle = '#1e293b';
+      ctx.fillStyle = '#1a1a1a';
       ctx.fillRect(0, 0, canvas.width, 6);
-      ctx.fillStyle = '#2563eb';
+      ctx.fillStyle = '#f0f0f0';
       ctx.fillRect(0, 0, canvas.width * progress, 6);
 
       // Check mission complete
@@ -501,7 +552,11 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
     return () => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleWindowBlur);
       canvas.removeEventListener('pointerdown', jump);
+      crouchActionRef.current = null;
+      jumpActionRef.current = null;
     };
   }, [emails, classifications, onMissionComplete]);
 
@@ -608,7 +663,11 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
       </div>
 
       <div className="canvas-container" ref={containerRef}>
-        <canvas ref={canvasRef} aria-label="Courier runner game. Tap or click to jump." />
+        <canvas
+          ref={canvasRef}
+          tabIndex={0}
+          aria-label="Courier runner game. Jump to clear low obstacles and crouch under purple overhead barriers."
+        />
         <div className="toast-overlay">
           {toasts.map(toast => (
             <div key={toast.id} className={`hud-toast ${toast.type}`}>
@@ -619,22 +678,38 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
       </div>
 
       <div className="game-controls-hint">
-        <span>🎮 <strong>Jump:</strong> Space, ↑, or tap the game. Your score never changes email actions.</span>
-        <button
-          onClick={handleQuickFinish}
-          disabled={fastForwarding}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--accent-blue)',
-            cursor: 'pointer',
-            fontSize: '0.85rem',
-            textDecoration: 'underline'
-          }}
-        >
-          {fastForwarding ? 'Finishing mission…' : 'Fast-Forward Mission →'}
-        </button>
+        <div className="game-controls">
+          <span className="control-copy">
+            <strong>Jump</strong> Space / ↑ / tap <span aria-hidden="true">·</span>{' '}
+            <strong>Crouch</strong> hold ↓ / S
+          </span>
+          <div className="touch-controls" aria-label="Touch game controls">
+            <button type="button" className="touch-control" onClick={handleJump} aria-label="Jump">
+              Jump <span aria-hidden="true">↑</span>
+            </button>
+            <button
+              type="button"
+              className={`touch-control crouch-control ${crouchActive ? 'active' : ''}`}
+              aria-label="Hold to crouch"
+              aria-pressed={crouchActive}
+              onPointerDown={(event) => {
+                event.preventDefault();
+                event.currentTarget.setPointerCapture(event.pointerId);
+                handleCrouchChange(true);
+              }}
+              onPointerUp={() => handleCrouchChange(false)}
+              onPointerCancel={() => handleCrouchChange(false)}
+              onLostPointerCapture={() => handleCrouchChange(false)}
+            >
+              Crouch <span aria-hidden="true">↓</span>
+            </button>
+          </div>
+          <button className="fast-forward-button" onClick={handleQuickFinish} disabled={fastForwarding}>
+            {fastForwarding ? 'Finishing mission…' : 'Fast-forward →'}
+          </button>
+        </div>
       </div>
+      <p className="game-safety-note">Courier moves are for fun — email actions are based on safe triage, never your score.</p>
     </div>
   );
 }
