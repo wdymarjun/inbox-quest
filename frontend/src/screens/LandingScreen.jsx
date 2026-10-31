@@ -47,24 +47,6 @@ export function LandingScreen({ onStart }) {
 
   return (
     <div className="landing-page" id="home" ref={pageRef}>
-      {/* CINEMATIC STAGE 1: ORIGIN — ARJUN SINGH */}
-      <section className="origin-intro" aria-label="Project Origin and Creator">
-        <div className="origin-signature-badge">
-          <span className="origin-pulse-dot" aria-hidden="true" />
-          <span className="origin-kicker">INDEPENDENT CREATION BY</span>
-          <div className="origin-creator-wrap">
-            <span className="origin-creator-name" tabIndex="0">
-              ARJUN SINGH
-            </span>
-          </div>
-          <span className="origin-subtitle">ARCHITECT OF INBOX QUEST</span>
-        </div>
-        <div className="origin-light-thread" aria-hidden="true">
-          <div className="light-thread-line" />
-          <div className="light-thread-spark" />
-        </div>
-      </section>
-
       <section className="intro-spotlight" aria-labelledby="intro-spotlight-title">
         <span className="eyebrow"><span className="eyebrow-dot" /> YOUR THREE-MINUTE INBOX RESET</span>
         <h2 id="intro-spotlight-title" aria-label="Make room for a calmer inbox">
@@ -205,19 +187,14 @@ export function LandingScreen({ onStart }) {
         </button>
       </section>
 
-      {/* CINEMATIC STAGE 7: CREATOR END — ECHOES THE ORIGIN */}
       <footer className="site-footer scroll-reveal" id="credits">
         <div className="footer-topline">
           <span className="eyebrow"><span className="eyebrow-dot" /> CREDITS</span>
           <p>A small game for a calmer inbox.</p>
         </div>
         <div className="footer-credit">
-          <div className="footer-origin-thread" aria-hidden="true" />
-          <span className="footer-credit-label">Conceived, Designed &amp; Crafted by</span>
-          <div className="creator-name-wrap">
-            <span className="creator-name" tabIndex="0">ARJUN SINGH</span>
-          </div>
-          <span className="footer-credit-sub">INBOX QUEST · SAFE MONOCHROME COURIER EXPERIENCE</span>
+          <span className="footer-credit-label">Made with care by</span>
+          <span className="creator-name" tabIndex="0">ARJUN SINGH</span>
         </div>
         <div className="footer-bottom">
           <span>© 2026 Wdymarjun. All rights reserved.</span>
