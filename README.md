@@ -12,7 +12,7 @@
 
 **Conceived, Designed & Architected by [Arjun Singh](https://github.com/wdymarjun)**
 
-[Live Demo](https://inbox-quest.vercel.app) • [API Contract](docs/API_CONTRACT.md) • [Report Bug](https://github.com/wdymarjun/inbox-quest/issues)
+[Live Demo](https://indexquest.vercel.app/) • [API Contract](docs/API_CONTRACT.md) • [Report Bug](https://github.com/wdymarjun/inbox-quest/issues)
 
 </div>
 
