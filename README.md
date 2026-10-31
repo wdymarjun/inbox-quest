@@ -10,9 +10,9 @@
 [![Gemini 3.8 Flash](https://img.shields.io/badge/AI-Gemini%203.8%20Flash-black.svg?style=for-the-badge&logo=google)](https://deepmind.google/technologies/gemini/)
 [![Tests Passing](https://img.shields.io/badge/Tests-11%2F11%20Passed-black.svg?style=for-the-badge)](backend/assistant/brain.test.js)
 
-**Conceived, Designed & Architected by [Arjun Singh](https://github.com/wdymarjun)**
+**Conceived, Designed & Architected by [Arjun Singh](https://portfolio-nine-pi-rzvxowcqb1.vercel.app/) ([GitHub](https://github.com/wdymarjun))**
 
-[Live Demo](https://indexquest.vercel.app/) • [API Contract](docs/API_CONTRACT.md) • [Report Bug](https://github.com/wdymarjun/inbox-quest/issues)
+[Live Demo](https://indexquest.vercel.app/) • [Portfolio](https://portfolio-nine-pi-rzvxowcqb1.vercel.app/) • [API Contract](docs/API_CONTRACT.md) • [Report Bug](https://github.com/wdymarjun/inbox-quest/issues)
 
 </div>
 
@@ -258,4 +258,4 @@ For exhaustive schema definitions and error formats, see [docs/API_CONTRACT.md](
 
 Distributed under the **MIT License**. See `LICENSE` for details.
 
-Crafted with care by **[Arjun Singh](https://github.com/wdymarjun)**.
+Crafted with care by **[Arjun Singh](https://portfolio-nine-pi-rzvxowcqb1.vercel.app/)** ([@wdymarjun](https://github.com/wdymarjun)).

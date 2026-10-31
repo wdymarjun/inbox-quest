@@ -3124,6 +3124,9 @@ canvas:focus-visible {
 }
 
 .creator-name {
+  display: inline-block;
+  text-decoration: none;
+  cursor: pointer;
   color: #202020;
   font-size: clamp(3.2rem, 12vw, 9.5rem);
   font-weight: 900;

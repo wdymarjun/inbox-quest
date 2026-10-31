@@ -194,7 +194,15 @@ export function LandingScreen({ onStart }) {
         </div>
         <div className="footer-credit">
           <span className="footer-credit-label">Made with care by</span>
-          <span className="creator-name" tabIndex="0">ARJUN SINGH</span>
+          <a
+            href="https://portfolio-nine-pi-rzvxowcqb1.vercel.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="creator-name"
+            title="Visit Arjun Singh's Portfolio"
+          >
+            ARJUN SINGH
+          </a>
         </div>
         <div className="footer-bottom">
           <span>© 2026 Wdymarjun. All rights reserved.</span>
