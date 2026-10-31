@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export function SetupScreen({ onBeginMission, loading }) {
+export function SetupScreen({ onBeginMission, loading, usingDemoInbox, error }) {
   const [batchSize, setBatchSize] = useState(25);
 
   return (
@@ -9,8 +9,22 @@ export function SetupScreen({ onBeginMission, loading }) {
         Mission Setup
       </h2>
       <p style={{ color: 'var(--text-secondary)', marginBottom: '1.75rem', fontSize: '0.95rem' }}>
-        Select your simulated batch size to prepare your courier robot for launch.
+        Choose a small batch. Your runner skills affect the score, never how an email is handled.
       </p>
+
+      {usingDemoInbox ? (
+        <div className="demo-notice" role="status">
+          <strong>Demo inbox</strong>
+          <span>Prototype mode — using sample inbox data.</span>
+        </div>
+      ) : (
+        <div className="demo-notice" role="status">
+          <strong>Demo inbox</strong>
+          <span>Simulated inbox batch — no email account connection.</span>
+        </div>
+      )}
+
+      {error && <div className="error-notice" role="alert">{error}</div>}
 
       <div className="setup-group">
         <label className="setup-label">Select Email Batch Size</label>
@@ -33,27 +47,20 @@ export function SetupScreen({ onBeginMission, loading }) {
           <span>🛡️ Safety Guarantees</span>
         </div>
         <ul className="safety-list">
-          <li>We classify emails and suggest safe actions.</li>
           <li>We do not delete email automatically.</li>
-          <li>Uncertain emails are left for review.</li>
+          <li>Important emails are never archived.</li>
+          <li>Uncertain emails stay for review.</li>
         </ul>
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+      <div className="setup-actions">
         <button
           className="btn-primary"
           style={{ flex: 1 }}
           onClick={() => onBeginMission(batchSize)}
           disabled={loading}
         >
-          {loading ? 'Preparing Mission...' : 'Begin Mission →'}
-        </button>
-        <button
-          className="btn-secondary"
-          onClick={() => onBeginMission(10)}
-          disabled={loading}
-        >
-          Try Demo Inbox (Quick 10)
+          {loading ? 'Preparing mission…' : 'Start mission →'}
         </button>
       </div>
     </div>

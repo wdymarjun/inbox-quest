@@ -4,7 +4,7 @@ import { LandingScreen } from './screens/LandingScreen';
 import { SetupScreen } from './screens/SetupScreen';
 import { GameScreen } from './screens/GameScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
-import { fetchInbox, classifyEmails } from './api';
+import { fetchInbox, classifyEmails, isBackendConnected } from './api';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('landing'); // 'landing' | 'setup' | 'game' | 'results'
@@ -12,6 +12,8 @@ export default function App() {
   const [classifications, setClassifications] = useState([]);
   const [missionResults, setMissionResults] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [usingDemoInbox, setUsingDemoInbox] = useState(false);
+  const [setupError, setSetupError] = useState('');
 
   const handleStart = () => {
     setCurrentScreen('setup');
@@ -19,14 +21,20 @@ export default function App() {
 
   const handleBeginMission = async (batchSize) => {
     setLoading(true);
+    setSetupError('');
     try {
-      const { emails: fetchedEmails } = await fetchInbox(batchSize);
+      const { emails: fetchedEmails, fromBackend: inboxFromBackend } = await fetchInbox(batchSize);
       setEmails(fetchedEmails);
-      const classified = await classifyEmails(fetchedEmails);
+      if (fetchedEmails.length === 0) {
+        throw new Error('No emails were available for this mission. Please try again.');
+      }
+      const { classifications: classified, fromBackend: classificationsFromBackend } =
+        await classifyEmails(fetchedEmails);
       setClassifications(classified);
+      setUsingDemoInbox(!inboxFromBackend || !classificationsFromBackend || !isBackendConnected);
       setCurrentScreen('game');
     } catch (err) {
-      console.error('Error preparing mission:', err);
+      setSetupError(err instanceof Error ? err.message : 'Unable to prepare the mission. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -41,6 +49,7 @@ export default function App() {
     setEmails([]);
     setClassifications([]);
     setMissionResults(null);
+    setSetupError('');
     setCurrentScreen('setup');
   };
 
@@ -50,7 +59,7 @@ export default function App() {
         <div className="logo-area">
           <div className="logo-icon">IQ</div>
           <span className="logo-title">Inbox Quest</span>
-          <span className="logo-tagline">Save your inbox. Save the world.</span>
+          <span className="logo-tagline">A calmer inbox, one mission at a time</span>
         </div>
         <StatusBadge />
       </header>
@@ -58,7 +67,12 @@ export default function App() {
       <main className="main-content">
         {currentScreen === 'landing' && <LandingScreen onStart={handleStart} />}
         {currentScreen === 'setup' && (
-          <SetupScreen onBeginMission={handleBeginMission} loading={loading} />
+          <SetupScreen
+            onBeginMission={handleBeginMission}
+            loading={loading}
+            usingDemoInbox={usingDemoInbox}
+            error={setupError}
+          />
         )}
         {currentScreen === 'game' && (
           <GameScreen
@@ -68,7 +82,11 @@ export default function App() {
           />
         )}
         {currentScreen === 'results' && (
-          <ResultsScreen results={missionResults} onPlayAgain={handlePlayAgain} />
+          <ResultsScreen
+            results={missionResults}
+            onPlayAgain={handlePlayAgain}
+            usingDemoInbox={usingDemoInbox || !isBackendConnected}
+          />
         )}
       </main>
     </div>

@@ -2,7 +2,7 @@ import { getMockInboxBatch, mockClassify } from './mock/mockInbox';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
-export let isBackendConnected = false;
+export let isBackendConnected = null;
 let backendListeners = [];
 
 export function subscribeBackendStatus(listener) {
@@ -38,12 +38,12 @@ export async function fetchInbox(size = 25) {
       updateBackendStatus(true);
       return { emails: data, fromBackend: true };
     }
+
+    updateBackendStatus(false);
   } catch (err) {
-    // Backend unreachable or returned invalid data
     updateBackendStatus(false);
   }
 
-  // Guaranteed fallback
   return { emails: getMockInboxBatch(size), fromBackend: false };
 }
 
@@ -62,14 +62,14 @@ export async function classifyEmails(emails) {
     const data = await res.json();
     if (Array.isArray(data) && data.length > 0) {
       updateBackendStatus(true);
-      return data;
+      return { classifications: data, fromBackend: true };
     }
+    updateBackendStatus(false);
   } catch (err) {
     updateBackendStatus(false);
   }
 
-  // Fallback heuristic classification
-  return mockClassify(emails);
+  return { classifications: mockClassify(emails), fromBackend: false };
 }
 
 /**

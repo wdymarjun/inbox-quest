@@ -8,11 +8,19 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
   const [toasts, setToasts] = useState([]);
   const [cleanedCount, setCleanedCount] = useState(0);
   const [reviewCount, setReviewCount] = useState(0);
+  const [importantCount, setImportantCount] = useState(0);
+  const [score, setScore] = useState(0);
+  const [hearts, setHearts] = useState(3);
   const [processedIndex, setProcessedIndex] = useState(0);
+  const [fastForwarding, setFastForwarding] = useState(false);
 
   // Store actions applied for undo
   const appliedActionsRef = useRef([]);
   const processedEmailsRef = useRef([]);
+  const pendingActionsRef = useRef(0);
+  const resolvingEmailsRef = useRef(new Set());
+  const fastForwardRef = useRef(false);
+  const missionCompleteScheduledRef = useRef(false);
 
   // Toast helper
   const addToast = (msg, type = 'archive') => {
@@ -73,34 +81,40 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
     let spawnTimer = 0.5; // initial delay
     const spawnInterval = Math.max(1.8, Math.min(3.2, 50 / emails.length)); // pacing
     let missionFinished = false;
+    let scoreValue = 0;
+    let heartsValue = 3;
 
     // Keyboard controls
-    const handleKeyDown = (e) => {
-      if (e.code === 'Space' || e.code === 'ArrowUp') {
-        e.preventDefault();
-        if (robot.jumps < robot.maxJumps) {
-          robot.vy = jumpVelocity;
-          robot.isGrounded = false;
-          robot.jumps++;
+    const jump = () => {
+      if (robot.jumps < robot.maxJumps) {
+        robot.vy = jumpVelocity;
+        robot.isGrounded = false;
+        robot.jumps++;
 
-          // Jump thruster particles
-          for (let i = 0; i < 8; i++) {
-            particles.push({
-              x: robot.x + 10 + Math.random() * 20,
-              y: robot.y + robot.height,
-              vx: (Math.random() - 0.5) * 100,
-              vy: Math.random() * 150 + 50,
-              color: '#60a5fa',
-              size: Math.random() * 4 + 2,
-              life: 0.35,
-              maxLife: 0.35,
-            });
-          }
+        for (let i = 0; i < 8; i++) {
+          particles.push({
+            x: robot.x + 10 + Math.random() * 20,
+            y: robot.y + robot.height,
+            vx: (Math.random() - 0.5) * 100,
+            vy: Math.random() * 150 + 50,
+            color: '#60a5fa',
+            size: Math.random() * 4 + 2,
+            life: 0.35,
+            maxLife: 0.35,
+          });
         }
       }
     };
 
+    const handleKeyDown = (e) => {
+      if (e.code === 'Space' || e.code === 'ArrowUp') {
+        e.preventDefault();
+        jump();
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
+    canvas.addEventListener('pointerdown', jump);
 
     // Particle burst helper
     function createBurst(x, y, color) {
@@ -121,46 +135,55 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
     }
 
     // Action handler
-    async function triggerTriage(obstacle, actionType) {
+    async function triggerTriage(obstacle) {
       const email = obstacle.email;
       const cls = obstacle.classification;
       const snippetShort = email.subject.length > 32 ? email.subject.substring(0, 32) + '...' : email.subject;
+      const needsReview = cls.category === 'uncertain' || cls.confidence < 0.85 ||
+        cls.suggested_action === 'needs_review';
+      const chosenAction = needsReview
+        ? 'leave_in_inbox'
+        : cls.priority === 'high' || cls.category === 'important'
+          ? 'flag_important'
+          : ['archive', 'label_read_later', 'flag_important', 'leave_in_inbox'].includes(cls.suggested_action)
+            ? cls.suggested_action
+            : 'leave_in_inbox';
 
-      let chosenAction = cls.suggested_action;
-      if (chosenAction === 'needs_review') {
-        chosenAction = 'leave_in_inbox';
-      }
-
-      if (actionType === 'flag') {
-        chosenAction = 'flag_important';
-        addToast(`Flagged: ${snippetShort}`, 'flag');
-        setCleanedCount(c => c + 1);
-      } else if (actionType === 'review') {
-        chosenAction = 'leave_in_inbox';
-        addToast(`Needs Review: ${snippetShort}`, 'review');
-        setReviewCount(r => r + 1);
-      } else {
-        chosenAction = cls.suggested_action === 'label_read_later' ? 'label_read_later' : 'archive';
-        addToast(`Archived: ${snippetShort}`, 'archive');
-        setCleanedCount(c => c + 1);
-      }
+      resolvingEmailsRef.current.add(email.id);
+      pendingActionsRef.current++;
 
       // Apply to backend or fallback state
+      let actionStatus = 'rejected';
+      let rejectedReason = '';
       try {
         const res = await applyActions([{ email_id: email.id, action: chosenAction }]);
         if (res.applied && res.applied.length > 0) {
           appliedActionsRef.current.push(...res.applied);
-        } else {
-          // If rejected or mock
-          appliedActionsRef.current.push({
-            action_id: `act-local-${email.id}`,
-            email_id: email.id,
-            action: chosenAction,
-            applied_at: new Date().toISOString(),
-          });
+          actionStatus = 'applied';
+        } else if (res.rejected?.length) {
+          rejectedReason = res.rejected[0].reason;
         }
       } catch (err) {
-        console.error('Failed applying action:', err);
+        rejectedReason = err instanceof Error ? err.message : 'Action could not be completed.';
+      }
+
+      if (actionStatus === 'applied') {
+        if (chosenAction === 'leave_in_inbox') {
+          addToast(`${needsReview ? 'For review' : 'Kept safe'}: ${snippetShort}`, needsReview ? 'review' : 'archive');
+          if (needsReview) setReviewCount(c => c + 1);
+        } else if (chosenAction === 'flag_important') {
+          addToast(`Important, kept safe: ${snippetShort}`, 'flag');
+        } else if (chosenAction === 'archive') {
+          addToast(`Archived: ${snippetShort}`, 'archive');
+          setCleanedCount(c => c + 1);
+        } else {
+          addToast(`Saved for later: ${snippetShort}`, 'archive');
+        }
+      } else {
+        addToast(`Not applied: ${rejectedReason || snippetShort}`, 'review');
+      }
+      if (cls.category === 'important' || cls.priority === 'high') {
+        setImportantCount(c => c + 1);
       }
 
       processedEmailsRef.current.push({
@@ -168,10 +191,13 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
         category: cls.category,
         priority: cls.priority,
         actionTaken: chosenAction,
-        isSuggestion: false,
+        suggestedAction: cls.suggested_action,
+        actionStatus,
+        rejectedReason,
       });
-
       setProcessedIndex(processedEmailsRef.current.length);
+      resolvingEmailsRef.current.delete(email.id);
+      pendingActionsRef.current--;
     }
 
     // Game loop
@@ -180,6 +206,10 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
     const updateAndRender = (currentTime) => {
       const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
       lastTime = currentTime;
+
+      if (fastForwardRef.current) {
+        return;
+      }
 
       // Physics update
       robot.vy += gravity * dt;
@@ -199,27 +229,27 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
         const item = emailQueue[currentQueueIdx++];
         const cat = item.classification.category;
 
-        let type = 'junk'; // promotion / newsletter
+        let type = 'junk';
         let obsY = groundY - 32;
         let obsW = 34;
         let obsH = 32;
-        let color = '#f97316'; // orange
+        let color = '#2563eb';
 
         if (cat === 'receipt_bill') {
           type = 'cargo';
           obsY = groundY - 28;
           obsW = 32;
           obsH = 28;
-          color = '#22c55e'; // green
+          color = '#2563eb';
         } else if (cat === 'important') {
           type = 'beacon';
-          obsY = groundY - 110; // high beacon requires jumping
+          obsY = groundY - 110;
           obsW = 28;
           obsH = 34;
-          color = '#38bdf8'; // sky blue glowing
+          color = '#172554';
         } else if (cat === 'uncertain') {
           type = 'question';
-          obsY = groundY - 65; // mid-air
+          obsY = groundY - 65;
           obsW = 30;
           obsH = 30;
           color = '#fbbf24'; // amber
@@ -334,34 +364,21 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
           robot.y < obs.y + obs.height &&
           robot.y + robot.height > obs.y;
 
-        // Passed safely check
-        const passed = robot.x > obs.x + obs.width + 10;
+        const passed = obs.x + obs.width + 10 < robot.x;
 
         if (!obs.resolved) {
           if (collides) {
             obs.resolved = true;
             createBurst(obs.x + obs.width / 2, obs.y + obs.height / 2, obs.color);
-
-            if (obs.type === 'beacon') {
-              triggerTriage(obs, 'flag');
-            } else if (obs.type === 'cargo' || obs.type === 'junk') {
-              triggerTriage(obs, 'archive');
-            } else if (obs.type === 'question') {
-              triggerTriage(obs, 'review');
-            }
+            heartsValue = Math.max(0, heartsValue - 1);
+            setHearts(heartsValue);
+            triggerTriage(obs);
           } else if (passed) {
             obs.resolved = true;
             createBurst(obs.x + obs.width / 2, obs.y + obs.height / 2, obs.color);
-
-            if (obs.type === 'junk' || obs.type === 'cargo') {
-              // Successfully jumped over junk / skipped cargo -> archive
-              triggerTriage(obs, 'archive');
-            } else if (obs.type === 'beacon') {
-              // Beacon still flagged for safety even if dodged
-              triggerTriage(obs, 'flag');
-            } else if (obs.type === 'question') {
-              triggerTriage(obs, 'review');
-            }
+            scoreValue += 25;
+            setScore(scoreValue);
+            triggerTriage(obs);
           }
         }
 
@@ -371,7 +388,7 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
           // Hazard junk pile
           ctx.fillStyle = obs.color;
           ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
-          ctx.fillStyle = '#ea580c';
+          ctx.fillStyle = '#1d4ed8';
           ctx.fillRect(obs.x + 4, obs.y + 4, obs.width - 8, obs.height - 8);
           // Label
           ctx.fillStyle = '#ffffff';
@@ -381,7 +398,7 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
           // Green cargo box
           ctx.fillStyle = obs.color;
           ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
-          ctx.fillStyle = '#16a34a';
+          ctx.fillStyle = '#1d4ed8';
           ctx.fillRect(obs.x + 4, obs.y + 4, obs.width - 8, obs.height - 8);
           ctx.fillStyle = '#ffffff';
           ctx.font = '10px sans-serif';
@@ -389,9 +406,9 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
         } else if (obs.type === 'beacon') {
           // Glowing blue beacon
           const glow = Math.sin(currentTime * 0.008) * 4;
-          ctx.shadowColor = '#38bdf8';
+          ctx.shadowColor = '#172554';
           ctx.shadowBlur = 12 + glow;
-          ctx.fillStyle = '#0284c7';
+          ctx.fillStyle = '#172554';
           ctx.beginPath();
           ctx.arc(obs.x + obs.width / 2, obs.y + obs.height / 2, 14, 0, Math.PI * 2);
           ctx.fill();
@@ -416,6 +433,13 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
           ctx.font = '10px sans-serif';
           ctx.fillText('REVIEW', obs.x - 4, obs.y - 6);
         }
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '10px sans-serif';
+        const senderLabel = obs.email.sender.split('@')[0].slice(0, 15);
+        ctx.fillText(senderLabel, obs.x - 12, obs.y - 20);
+        ctx.font = '9px sans-serif';
+        ctx.fillStyle = obs.type === 'question' ? '#fbbf24' : obs.color;
+        ctx.fillText(obs.classification.category.replace('_', ' ').toUpperCase(), obs.x - 12, obs.y - 8);
         ctx.restore();
 
         // Cull offscreen
@@ -453,9 +477,12 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
       if (
         currentQueueIdx >= emailQueue.length &&
         activeObstacles.length === 0 &&
+        processedEmailsRef.current.length === emails.length &&
+        pendingActionsRef.current === 0 &&
         !missionFinished
       ) {
         missionFinished = true;
+        missionCompleteScheduledRef.current = true;
         setTimeout(() => {
           onMissionComplete({
             appliedActions: appliedActionsRef.current,
@@ -474,41 +501,79 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
     return () => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('keydown', handleKeyDown);
+      canvas.removeEventListener('pointerdown', jump);
     };
   }, [emails, classifications, onMissionComplete]);
 
   // Fast finish skip button for convenience
   const handleQuickFinish = async () => {
+    if (fastForwardRef.current || missionCompleteScheduledRef.current) return;
+    fastForwardRef.current = true;
+    setFastForwarding(true);
+
     // Process any remaining emails immediately
-    const alreadyProcessedIds = new Set(processedEmailsRef.current.map(p => p.id));
+    const alreadyProcessedIds = new Set([
+      ...processedEmailsRef.current.map(p => p.id),
+      ...resolvingEmailsRef.current,
+    ]);
     const remaining = emails.filter(e => !alreadyProcessedIds.has(e.id));
 
     if (remaining.length > 0) {
-      const actionsToApply = remaining.map(e => {
-        const cls = classifications.find(c => c.id === e.id) || { suggested_action: 'archive' };
-        let action = cls.suggested_action === 'needs_review' ? 'leave_in_inbox' : cls.suggested_action;
-        return { email_id: e.id, action };
+      const remainingRecords = remaining.map(email => {
+        const cls = classifications.find(c => c.id === email.id) || {};
+        const needsReview = cls.category === 'uncertain' || cls.confidence < 0.85 ||
+          cls.suggested_action === 'needs_review';
+        const action = needsReview
+          ? 'leave_in_inbox'
+          : cls.priority === 'high' || cls.category === 'important'
+            ? 'flag_important'
+            : ['archive', 'label_read_later', 'flag_important', 'leave_in_inbox'].includes(cls.suggested_action)
+              ? cls.suggested_action
+              : 'leave_in_inbox';
+        return { email, cls, action };
       });
 
       try {
-        const res = await applyActions(actionsToApply);
-        if (res.applied) {
-          appliedActionsRef.current.push(...res.applied);
+        const res = await applyActions(remainingRecords.map(({ email, action }) => ({
+          email_id: email.id,
+          action,
+        })));
+        if (res.applied) appliedActionsRef.current.push(...res.applied);
+        for (const { email, cls, action } of remainingRecords) {
+          const applied = res.applied?.some(item => item.email_id === email.id);
+          const rejected = res.rejected?.find(item => item.email_id === email.id);
+          processedEmailsRef.current.push({
+            ...email,
+            category: cls.category || 'uncertain',
+            priority: cls.priority || 'medium',
+            actionTaken: action,
+            suggestedAction: cls.suggested_action || 'needs_review',
+            actionStatus: applied ? 'applied' : 'rejected',
+            rejectedReason: rejected?.reason || '',
+          });
         }
       } catch (err) {
-        console.error(err);
+        setToasts(prev => [...prev, {
+          id: Date.now(),
+          msg: err instanceof Error ? err.message : 'Some actions could not be completed.',
+          type: 'review',
+        }]);
+        for (const { email, cls, action } of remainingRecords) {
+          processedEmailsRef.current.push({
+            ...email,
+            category: cls.category || 'uncertain',
+            priority: cls.priority || 'medium',
+            actionTaken: action,
+            suggestedAction: cls.suggested_action || 'needs_review',
+            actionStatus: 'rejected',
+            rejectedReason: err instanceof Error ? err.message : 'Action could not be completed.',
+          });
+        }
       }
+    }
 
-      for (const rem of remaining) {
-        const cls = classifications.find(c => c.id === rem.id) || {};
-        processedEmailsRef.current.push({
-          ...rem,
-          category: cls.category || 'promotion',
-          priority: cls.priority || 'low',
-          actionTaken: cls.suggested_action === 'needs_review' ? 'leave_in_inbox' : (cls.suggested_action || 'archive'),
-          isSuggestion: false,
-        });
-      }
+    while (pendingActionsRef.current > 0) {
+      await new Promise(resolve => setTimeout(resolve, 20));
     }
 
     onMissionComplete({
@@ -525,17 +590,25 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
           <span className="hud-value">{processedIndex} / {emails.length}</span>
         </div>
         <div className="hud-item">
-          <span>Cleaned:</span>
+          <span>Archived:</span>
           <span className="hud-value">{cleanedCount}</span>
         </div>
         <div className="hud-item">
+          <span>Important found:</span>
+          <span className="hud-value">{importantCount}</span>
+        </div>
+        <div className="hud-item">
           <span>Review:</span>
-          <span className="hud-value" style={{ color: '#d97706' }}>{reviewCount}</span>
+          <span className="hud-value">{reviewCount}</span>
+        </div>
+        <div className="hud-item game-score">
+          <span>Score {score}</span>
+          <span aria-label={`${hearts} hearts remaining`}>{'♥'.repeat(hearts)}{'♡'.repeat(3 - hearts)}</span>
         </div>
       </div>
 
       <div className="canvas-container" ref={containerRef}>
-        <canvas ref={canvasRef} />
+        <canvas ref={canvasRef} aria-label="Courier runner game. Tap or click to jump." />
         <div className="toast-overlay">
           {toasts.map(toast => (
             <div key={toast.id} className={`hud-toast ${toast.type}`}>
@@ -546,9 +619,10 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
       </div>
 
       <div className="game-controls-hint">
-        <span>🎮 <strong>Controls:</strong> Press <strong>SPACE</strong> or <strong>UP ARROW</strong> to Jump / Double-Jump.</span>
+        <span>🎮 <strong>Jump:</strong> Space, ↑, or tap the game. Your score never changes email actions.</span>
         <button
           onClick={handleQuickFinish}
+          disabled={fastForwarding}
           style={{
             background: 'none',
             border: 'none',
@@ -558,7 +632,7 @@ export function GameScreen({ emails, classifications, onMissionComplete }) {
             textDecoration: 'underline'
           }}
         >
-          Fast-Forward Mission →
+          {fastForwarding ? 'Finishing mission…' : 'Fast-Forward Mission →'}
         </button>
       </div>
     </div>
